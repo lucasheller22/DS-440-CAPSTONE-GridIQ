@@ -8,6 +8,7 @@ This is a front-end starter framework for **GridIQ**: an assistant coach UI with
 
 ## Quickstart
 ```bash
+cd gridiq-frontend
 npm install
 npm run dev
 ```

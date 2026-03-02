@@ -39,7 +39,20 @@ export default function Chat() {
 
   const send = useMutation({
     mutationFn: (content: string) => api.sendMessage(threadId, content),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["thread", threadId] }),
+    onSuccess: (_data, content) => {
+      qc.invalidateQueries({ queryKey: ["thread", threadId] });
+      // fake assistant response after a short delay so the UI looks live
+      setTimeout(() => {
+        const assistant: ChatMessage = {
+          id: crypto.randomUUID(),
+          threadId,
+          role: "assistant",
+          content: `You said: "${content}" – this is a mocked reply.`,
+          createdAt: new Date().toISOString(),
+        };
+        qc.setQueryData<ChatMessage[]>(["thread", threadId], (old) => (old ? [...old, assistant] : [assistant]));
+      }, 700);
+    },
   });
 
   const [text, setText] = useState("");

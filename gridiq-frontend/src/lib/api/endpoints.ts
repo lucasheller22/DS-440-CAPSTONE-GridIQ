@@ -3,9 +3,11 @@ import { api } from "./client";
 import type { ChatMessage, Game, Play, User } from "../../types";
 
 // helper used throughout the module so the "use mocks" toggle can be
-// changed at runtime via settings
+// changed at runtime via settings.  For now we force the mock environment
+// unconditionally so the app works completely offline (no network needed).
 function useMocks() {
-  return import.meta.env.VITE_USE_MOCKS === "true" || localStorage.getItem("gridiq_use_mocks") === "true";
+  // always use mocks regardless of env vars; simplifies no-network testing
+  return true;
 }
 
 // Zod schemas (runtime validation)

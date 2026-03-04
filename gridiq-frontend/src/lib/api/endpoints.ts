@@ -30,11 +30,9 @@ const ChatMessageSchema = z.object({
 });
 
 export async function login(email: string, password: string): Promise<{ token: string; user: User }> {
-  // if the environment variable `VITE_USE_MOCKS` is set, keep using the
-  // local-storage stub; otherwise hit the real backend and let it throw
-  // on failure.  this makes it easy to work offline but also switch over
-  // once the API exists.
-  if (import.meta.env.VITE_USE_MOCKS === "true") {
+  // when mocks are enabled we bypass the network entirely.  the helper
+  // is already hard‑wired to return true in this build.
+  if (useMocks()) {
     if (!email || !password) throw new Error("Missing credentials");
     const user: User = { id: "u_1", email, displayName: "Coach", role: "coach" };
     const token = "dev-token";
@@ -46,7 +44,7 @@ export async function login(email: string, password: string): Promise<{ token: s
 }
 
 export async function me(): Promise<User> {
-  if (import.meta.env.VITE_USE_MOCKS === "true") {
+  if (useMocks()) {
     const raw = localStorage.getItem("gridiq_user");
     if (!raw) throw new Error("Not authenticated");
     const parsed = JSON.parse(raw);

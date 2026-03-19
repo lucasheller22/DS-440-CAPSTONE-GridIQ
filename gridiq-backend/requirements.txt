@@ -9,3 +9,5 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.20
 orjson==3.10.12
+nfl-data-py==0.3.3
+openai==1.12.0

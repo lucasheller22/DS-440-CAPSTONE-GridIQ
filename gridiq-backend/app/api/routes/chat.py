@@ -28,7 +28,7 @@ def build_football_context(db: Session, team: str = None, season: int = None, we
     if team:
         query = query.filter((Play.posteam == team) | (Play.defteam == team))
     if season:
-        query = query.filter(Play.id.contains(f"_{season_}"))
+        query = query.filter(Play.id.contains(f"_{season}_"))
     if week:
         query = query.filter(Play.id.contains(f"_W{week}"))
     
@@ -44,11 +44,12 @@ def build_football_context(db: Session, team: str = None, season: int = None, we
 
 
 def get_ai_response(user_message: str, conversation_context: str, db: Session) -> tuple[str, int]:
-    """Get response from OpenAI GPT-4 with football context."""
+    """Get response from Google Gemini with football context."""
     try:
-        import openai
+        import google.generativeai as genai
         
-        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
         # Build system prompt with football expertise
         system_prompt = """You are an expert AI football coach for GridIQ. You provide:
@@ -67,26 +68,16 @@ When answering questions:
 
 Use the provided NFL data context to enhance your responses."""
         
-        messages = [
-            {"role": "system", "content": system_prompt}
-        ]
-        
-        # Add conversation context
+        # Build the full prompt
+        prompt = system_prompt
         if conversation_context:
-            messages.append({"role": "system", "content": f"NFL Data Context:\n{conversation_context}"})
+            prompt += f"\n\nNFL Data Context:\n{conversation_context}"
+        prompt += f"\n\nUser: {user_message}"
         
-        # Add user message
-        messages.append({"role": "user", "content": user_message})
+        response = model.generate_content(prompt)
         
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=messages,
-            max_tokens=1500,
-            temperature=0.7,
-        )
-        
-        assistant_message = response.choices[0].message.content
-        tokens_used = response.usage.total_tokens
+        assistant_message = response.text
+        tokens_used = response.usage_metadata.total_token_count if response.usage_metadata else 0
         
         return assistant_message, tokens_used
     
@@ -241,7 +232,7 @@ def chat(
         conversation_id=conversation.id,
         role="assistant",
         content=assistant_message,
-        model="gpt-4",
+        model="gemini-1.5-flash",
         tokens_used=tokens_used,
     )
     db.add(assistant_message_obj)

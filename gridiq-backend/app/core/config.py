@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_MINUTES: int = 30
 
     OPENAI_API_KEY: str = ""
+    GEMINI_API_KEY: str = ""
 
     class Config:
         env_file = ".env"

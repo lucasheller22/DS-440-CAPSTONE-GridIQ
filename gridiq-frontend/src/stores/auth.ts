@@ -45,6 +45,7 @@ export const useAuth = create<AuthState>((set, get) => ({
   logout() {
     localStorage.removeItem("gridiq_token");
     localStorage.removeItem("gridiq_user");
+    api.clearAllThreadMessages();
     set({ token: null, user: null });
   },
 }));

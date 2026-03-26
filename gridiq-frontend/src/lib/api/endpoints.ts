@@ -9,6 +9,20 @@ function useMocks() {
   return USE_MOCKS;
 }
 
+const getThreadKey = (threadId: string) => `gridiq_thread_${threadId}`;
+
+const clearThreadMessages = (threadId: string) => {
+  if (!useMocks()) return;
+  sessionStorage.removeItem(getThreadKey(threadId));
+};
+
+const clearAllThreadMessages = () => {
+  if (!useMocks()) return;
+  Object.keys(sessionStorage)
+    .filter((k) => k.startsWith("gridiq_thread_"))
+    .forEach((k) => sessionStorage.removeItem(k));
+};
+
 // Zod schemas (runtime validation)
 const UserSchema = z.object({
   id: z.string(),
@@ -121,7 +135,7 @@ export async function listPlays(gameId: string): Promise<Play[]> {
 
 export async function listThreadMessages(threadId: string): Promise<ChatMessage[]> {
   if (useMocks()) {
-    const raw = localStorage.getItem(`gridiq_thread_${threadId}`);
+    const raw = sessionStorage.getItem(getThreadKey(threadId));
     return raw ? z.array(ChatMessageSchema).parse(JSON.parse(raw)) : [];
   }
 
@@ -151,7 +165,7 @@ export async function sendMessage(threadId: string, content: string): Promise<vo
     };
     const current = await listThreadMessages(threadId);
     const next = [...current, msg];
-    localStorage.setItem(`gridiq_thread_${threadId}`, JSON.stringify(next));
+    sessionStorage.setItem(getThreadKey(threadId), JSON.stringify(next));
     return;
   }
 

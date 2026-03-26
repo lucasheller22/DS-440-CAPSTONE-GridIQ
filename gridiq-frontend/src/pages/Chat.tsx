@@ -32,33 +32,23 @@ export default function Chat() {
   const threadId = useMemo(() => "default", []);
   const qc = useQueryClient();
 
-  const { data: messages = [] } = useQuery({
+  const { data: messages = [], isLoading: isLoadingMessages } = useQuery({
     queryKey: ["thread", threadId],
     queryFn: () => api.listThreadMessages(threadId),
+    refetchOnWindowFocus: false,
   });
 
   const send = useMutation({
     mutationFn: (content: string) => api.sendMessage(threadId, content),
-    onSuccess: (_data, content) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["thread", threadId] });
-      // fake assistant response after a short delay so the UI looks live
-      setTimeout(() => {
-        const assistant: ChatMessage = {
-          id: crypto.randomUUID(),
-          threadId,
-          role: "assistant",
-          content: `You said: "${content}" – this is a mocked reply.`,
-          createdAt: new Date().toISOString(),
-        };
-        qc.setQueryData<ChatMessage[]>(["thread", threadId], (old) => (old ? [...old, assistant] : [assistant]));
-      }, 700);
     },
   });
 
   const [text, setText] = useState("");
 
   useEffect(() => {
-    // TODO: replace with SSE/websocket streaming when backend is ready.
+    // Optional: setup streaming (SSE/WebSocket) once backend supports it.
   }, []);
 
   return (
@@ -66,13 +56,15 @@ export default function Chat() {
       <div>
         <div className="text-2xl font-semibold">Chat</div>
         <div className="mt-1 text-sm text-gray-600">
-          Threaded chat UI (local persistence for now). Swap API calls to your backend for real responses + streaming.
+          Threaded chat UI using backend Chat API (real auth + persistence). Implement streaming once available.
         </div>
       </div>
 
       <Card className="space-y-3">
         <div className="h-[52vh] space-y-2 overflow-auto rounded-xl border border-gray-100 bg-white p-3">
-          {messages.length === 0 ? (
+          {isLoadingMessages ? (
+            <div className="text-sm text-gray-500">Loading conversation...</div>
+          ) : messages.length === 0 ? (
             <div className="text-sm text-gray-500">
               No messages yet. Ask something like: “Explain Cover 3 vs Quarters for 3x1 formations.”
             </div>

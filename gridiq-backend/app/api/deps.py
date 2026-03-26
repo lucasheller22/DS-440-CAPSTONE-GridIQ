@@ -19,7 +19,7 @@ def get_db() -> Generator[Session, None, None]:
 def get_current_user(
     creds: HTTPAuthorizationCredentials = Depends(bearer),
     db: Session = Depends(get_db),
-) -> str:
+) -> User:
     if not creds or creds.scheme.lower() != "bearer":
         raise HTTPException(status_code=401, detail="Missing auth token")
 
@@ -31,4 +31,4 @@ def get_current_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
-    return user_id
+    return user

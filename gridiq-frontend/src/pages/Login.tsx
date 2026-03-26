@@ -16,7 +16,7 @@ export default function Login() {
     <div className="mx-auto max-w-md">
       <Card className="mt-10">
         <div className="text-xl font-semibold">Sign in</div>
-        <div className="mt-1 text-sm text-gray-600">Starter auth is mocked (localStorage).</div>
+        <div className="mt-1 text-sm text-gray-600">Uses API-auth against backend when VITE_USE_MOCKS is not true.</div>
 
         <div className="mt-4 space-y-3">
           <div>

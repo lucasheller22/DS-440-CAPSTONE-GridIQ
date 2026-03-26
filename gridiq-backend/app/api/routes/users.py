@@ -7,4 +7,4 @@ router = APIRouter()
 
 @router.get("/me", response_model=UserOut)
 def me(current: User = Depends(get_current_user)):
-    return UserOut(id=current.id, email=current.email)
+    return UserOut(id=current.id, email=current.email, displayName=current.display_name, role=current.role)

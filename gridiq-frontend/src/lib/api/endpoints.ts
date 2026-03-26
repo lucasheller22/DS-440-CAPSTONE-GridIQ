@@ -3,11 +3,10 @@ import { api } from "./client";
 import type { ChatMessage, Game, Play, User } from "../../types";
 
 // helper used throughout the module so the "use mocks" toggle can be
-// changed at runtime via settings.  For now we force the mock environment
-// unconditionally so the app works completely offline (no network needed).
+// changed at runtime via settings.  Use VITE_USE_MOCKS=true to run offline.
+const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === "true";
 function useMocks() {
-  // always use mocks regardless of env vars; simplifies no-network testing
-  return true;
+  return USE_MOCKS;
 }
 
 // Zod schemas (runtime validation)
@@ -30,8 +29,6 @@ const ChatMessageSchema = z.object({
 });
 
 export async function login(email: string, password: string): Promise<{ token: string; user: User }> {
-  // when mocks are enabled we bypass the network entirely.  the helper
-  // is already hard‑wired to return true in this build.
   if (useMocks()) {
     if (!email || !password) throw new Error("Missing credentials");
     const user: User = { id: "u_1", email, displayName: "Coach", role: "coach" };
@@ -51,7 +48,7 @@ export async function me(): Promise<User> {
     return UserSchema.parse(parsed);
   }
 
-  const resp = await api.get("/api/auth/me");
+  const resp = await api.get("/api/users/me");
   return UserSchema.parse(resp.data);
 }
 
@@ -127,11 +124,23 @@ export async function listThreadMessages(threadId: string): Promise<ChatMessage[
     const raw = localStorage.getItem(`gridiq_thread_${threadId}`);
     return raw ? z.array(ChatMessageSchema).parse(JSON.parse(raw)) : [];
   }
-  const resp = await api.get(`/api/chat/threads/${threadId}`);
-  return resp.data;
+
+  const resp = await api.get(`/api/chat/conversations/${threadId}`);
+  const conversation = resp.data as { messages: any[] };
+
+  return (conversation.messages || []).map((m) =>
+    ChatMessageSchema.parse({
+      id: m.id,
+      threadId,
+      role: m.role,
+      content: m.content,
+      createdAt: new Date(m.created_at).toISOString(),
+      citations: m.citations,
+    }),
+  );
 }
 
-export async function sendMessage(threadId: string, content: string): Promise<ChatMessage> {
+export async function sendMessage(threadId: string, content: string): Promise<void> {
   if (useMocks()) {
     const msg: ChatMessage = {
       id: crypto.randomUUID(),
@@ -143,9 +152,8 @@ export async function sendMessage(threadId: string, content: string): Promise<Ch
     const current = await listThreadMessages(threadId);
     const next = [...current, msg];
     localStorage.setItem(`gridiq_thread_${threadId}`, JSON.stringify(next));
-    return msg;
+    return;
   }
 
-  const resp = await api.post(`/api/chat/threads/${threadId}/messages`, { content });
-  return resp.data;
+  await api.post(`/api/chat`, { conversation_id: threadId, message: content });
 }

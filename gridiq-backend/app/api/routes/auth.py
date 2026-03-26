@@ -2,19 +2,21 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_db, get_current_user
 from app.core.security import hash_password, verify_password, create_access_token
 from app.models.user import User
+from app.schemas.auth import RegisterIn, LoginIn, AuthOut
+from app.schemas.user import UserOut
 
 router = APIRouter()
 
-@router.post("/register")
-def register(payload: dict, db: Session = Depends(get_db)):
-    email = payload.get("email")
-    password = payload.get("password")
+@router.post("/register", response_model=AuthOut)
+def register(payload: RegisterIn, db: Session = Depends(get_db)):
+    email = payload.email
+    password = payload.password
 
-    if not email or not password:
-        raise HTTPException(status_code=400, detail="Missing credentials")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
 
     existing = db.query(User).filter(User.email == email).first()
     if existing:
@@ -34,20 +36,20 @@ def register(payload: dict, db: Session = Depends(get_db)):
 
     token = create_access_token(user.id)
 
-    return {
-        "token": token,
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "displayName": user.display_name,
-            "role": user.role,
-        },
-    }
+    return AuthOut(
+        token=token,
+        user=UserOut(
+            id=user.id,
+            email=user.email,
+            displayName=user.display_name,
+            role=user.role,
+        ),
+    )
 
-@router.post("/login")
-def login(payload: dict, db: Session = Depends(get_db)):
-    email = payload.get("email")
-    password = payload.get("password")
+@router.post("/login", response_model=AuthOut)
+def login(payload: LoginIn, db: Session = Depends(get_db)):
+    email = payload.email
+    password = payload.password
 
     if not email or not password:
         raise HTTPException(status_code=400, detail="Missing credentials")
@@ -58,12 +60,22 @@ def login(payload: dict, db: Session = Depends(get_db)):
 
     token = create_access_token(user.id)
 
-    return {
-        "token": token,
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "displayName": user.display_name,
-            "role": user.role,
-        },
-    }
+    return AuthOut(
+        token=token,
+        user=UserOut(
+            id=user.id,
+            email=user.email,
+            displayName=user.display_name,
+            role=user.role,
+        ),
+    )
+
+
+@router.get("/me", response_model=UserOut)
+def me(current_user: User = Depends(get_current_user)):
+    return UserOut(
+        id=current_user.id,
+        email=current_user.email,
+        displayName=current_user.display_name,
+        role=current_user.role,
+    )

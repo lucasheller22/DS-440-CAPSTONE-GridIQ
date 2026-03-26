@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, get_current_user
 from app.models.conversation import Conversation, Message
 from app.models.game import Play
+from app.models.user import User
 from app.schemas.conversation import (
     ConversationSchema,
     ConversationCreateSchema,
@@ -88,13 +89,13 @@ Use the provided NFL data context to enhance your responses."""
 @router.post("/conversations", response_model=ConversationSchema)
 def create_conversation(
     payload: ConversationCreateSchema,
-    user_id: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Create a new conversation."""
     conversation = Conversation(
         id=f"conv_{uuid.uuid4().hex}",
-        user_id=user_id,
+        user_id=current_user.id,
         title=payload.title,
     )
     db.add(conversation)
@@ -105,13 +106,13 @@ def create_conversation(
 
 @router.get("/conversations", response_model=list[ConversationSchema])
 def list_conversations(
-    user_id: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """List all conversations for the user."""
     conversations = (
         db.query(Conversation)
-        .filter(Conversation.user_id == user_id)
+        .filter(Conversation.user_id == current_user.id)
         .order_by(Conversation.updated_at.desc())
         .all()
     )
@@ -121,13 +122,13 @@ def list_conversations(
 @router.get("/conversations/{conversation_id}", response_model=ConversationSchema)
 def get_conversation(
     conversation_id: str,
-    user_id: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Get a specific conversation with all messages."""
     conversation = db.query(Conversation).filter(
         Conversation.id == conversation_id,
-        Conversation.user_id == user_id,
+        Conversation.user_id == current_user.id,
     ).first()
     
     if not conversation:
@@ -140,13 +141,13 @@ def get_conversation(
 def update_conversation(
     conversation_id: str,
     payload: ConversationUpdateSchema,
-    user_id: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Update a conversation title."""
     conversation = db.query(Conversation).filter(
         Conversation.id == conversation_id,
-        Conversation.user_id == user_id,
+        Conversation.user_id == current_user.id,
     ).first()
     
     if not conversation:
@@ -163,13 +164,13 @@ def update_conversation(
 @router.delete("/conversations/{conversation_id}")
 def delete_conversation(
     conversation_id: str,
-    user_id: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Delete a conversation and all its messages."""
     conversation = db.query(Conversation).filter(
         Conversation.id == conversation_id,
-        Conversation.user_id == user_id,
+        Conversation.user_id == current_user.id,
     ).first()
     
     if not conversation:
@@ -184,7 +185,7 @@ def delete_conversation(
 @router.post("/chat", response_model=ChatResponseSchema)
 def chat(
     payload: ChatRequestSchema,
-    user_id: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Send a message and get AI coach response."""
@@ -193,14 +194,21 @@ def chat(
     if payload.conversation_id:
         conversation = db.query(Conversation).filter(
             Conversation.id == payload.conversation_id,
-            Conversation.user_id == user_id,
+            Conversation.user_id == current_user.id,
         ).first()
         if not conversation:
-            raise HTTPException(status_code=404, detail="Conversation not found")
+            # Create an initial conversation if provided ID doesn't exist yet
+            conversation = Conversation(
+                id=payload.conversation_id,
+                user_id=current_user.id,
+                title="New Conversation",
+            )
+            db.add(conversation)
+            db.flush()
     else:
         conversation = Conversation(
             id=f"conv_{uuid.uuid4().hex}",
-            user_id=user_id,
+            user_id=current_user.id,
             title="New Conversation",
         )
         db.add(conversation)

@@ -15,10 +15,9 @@ import app.models  # noqa: F401
 
 config = context.config
 
-# Use .env-backed settings if SQLAlchemy URL is not in alembic.ini
-alembic_url = config.get_main_option("sqlalchemy.url")
-if not alembic_url:
-    config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Prefer environment/config-based settings; fallback to alembic.ini
+alembic_url = settings.DATABASE_URL or config.get_main_option("sqlalchemy.url")
+config.set_main_option("sqlalchemy.url", alembic_url)
 
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:

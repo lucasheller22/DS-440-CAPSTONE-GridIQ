@@ -125,34 +125,37 @@ Navigate to the backend directory:
 cd gridiq-backend
 ```
 
-Create `.env` file with required configuration:
+Create `.env` from the example and edit values:
 ```bash
-# Database
-DATABASE_URL=postgresql://postgres:password@localhost:5432/gridiq
-
-# JWT
-JWT_SECRET=your-super-secret-jwt-key-here
-JWT_ALG=HS256
-ACCESS_TOKEN_MINUTES=30
-
-# OpenAI
-OPENAI_API_KEY=sk-your-openai-key-here
-
-# Environment
-ENV=dev
+copy .env.example .env  # Windows PowerShell
+# or cp .env.example .env # macOS/Linux
 ```
+
+Required keys in `.env`:
+- `DATABASE_URL` (e.g. `postgresql+psycopg://postgres:postgres@db:5432/gridiq`)
+- `JWT_SECRET` (choose a strong secret)
+- `JWT_ALG=HS256`
+- `ACCESS_TOKEN_MINUTES=30`
+- `OPENAI_API_KEY` (optional; empty string default)
+- `GEMINI_API_KEY` (optional; empty string default)
+- `ENV=dev`
 
 Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-Create database tables:
+Run migrations (requires DB available):
 ```bash
 python -m alembic upgrade head
 ```
 
-Start the backend server:
+If you don't have a DB yet, one quick way is Docker Compose:
+```bash
+docker compose up -d
+```
+
+Run the backend server:
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```

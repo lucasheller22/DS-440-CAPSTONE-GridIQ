@@ -21,9 +21,11 @@ app.include_router(cache.router, prefix="/api/cache", tags=["cache"])
 
 from fastapi.middleware.cors import CORSMiddleware
 
+# Accept frontend requests in local development on common host/ports.
+# Update / lock down origins for production deployments.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -3,8 +3,12 @@ import axios from "axios";
 // base URL can be overridden at runtime via localStorage (settings page) or
 // build‑time with VITE_API_BASE_URL.
 const runtimeBase = localStorage.getItem("gridiq_api_base") || undefined;
+
+// Default to backend local dev default (8000). 8080 is for static assets in some setups.
+const defaultBase = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+
 export const api = axios.create({
-  baseURL: runtimeBase ?? import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080",
+  baseURL: runtimeBase ?? defaultBase,
   timeout: 15000,
 });
 

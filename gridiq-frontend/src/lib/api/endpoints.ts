@@ -16,7 +16,7 @@ const clearThreadMessages = (threadId: string) => {
   sessionStorage.removeItem(getThreadKey(threadId));
 };
 
-const clearAllThreadMessages = () => {
+export const clearAllThreadMessages = () => {
   if (!useMocks()) return;
   Object.keys(sessionStorage)
     .filter((k) => k.startsWith("gridiq_thread_"))

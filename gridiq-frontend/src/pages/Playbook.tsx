@@ -25,7 +25,7 @@ function FootballField({
   const x = (yd: number) => (yd / 100) * w;
   const y = (sideline: number) => (sideline / 53.3) * h;
 
-  const toYard = (evt: PointerEvent<SVGSVGElement>) => {
+  const toYard = (evt: PointerEvent<SVGElement>) => {
     if (!svgRef.current) return null;
     const pt = svgRef.current.createSVGPoint();
     pt.x = evt.clientX;

@@ -53,6 +53,19 @@ export async function login(email: string, password: string): Promise<{ token: s
   return resp.data;
 }
 
+export async function register(email: string, password: string): Promise<{ token: string; user: User }> {
+  if (useMocks()) {
+    if (!email || !password) throw new Error("Missing credentials");
+    if (password.length < 8) throw new Error("Password must be at least 8 characters");
+    const user: User = { id: "u_1", email, displayName: "Coach", role: "coach" };
+    const token = "dev-token";
+    return { token, user };
+  }
+
+  const resp = await api.post("/api/auth/register", { email, password });
+  return resp.data;
+}
+
 export async function me(): Promise<User> {
   if (useMocks()) {
     const raw = localStorage.getItem("gridiq_user");

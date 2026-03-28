@@ -16,7 +16,10 @@ export function AppLayout() {
   // If not logged in, allow /login; otherwise keep user in app
   useEffect(() => {
     const token = localStorage.getItem("gridiq_token");
-    if (!token && location.pathname !== "/login") navigate("/login", { replace: true });
+    const publicPaths = ["/login", "/register"];
+    if (!token && !publicPaths.includes(location.pathname)) {
+      navigate("/login", { replace: true });
+    }
   }, [location.pathname, navigate]);
 
   return (

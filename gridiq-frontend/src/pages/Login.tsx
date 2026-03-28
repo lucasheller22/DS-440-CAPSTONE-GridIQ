@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../stores/auth";
 import { Button } from "../ui/primitives/Button";
 import { Input } from "../ui/primitives/Input";
@@ -16,7 +16,9 @@ export default function Login() {
     <div className="mx-auto max-w-md">
       <Card className="mt-10">
         <div className="text-xl font-semibold">Sign in</div>
-        <div className="mt-1 text-sm text-gray-600">Uses API-auth against backend when VITE_USE_MOCKS is not true.</div>
+        <div className="mt-1 text-sm text-gray-600">
+          Sign in with your backend account, or use Settings → local mocks for offline dev.
+        </div>
 
         <div className="mt-4 space-y-3">
           <div>
@@ -49,6 +51,13 @@ export default function Login() {
           >
             {isLoading ? "Signing in…" : "Sign in"}
           </Button>
+
+          <div className="pt-1 text-center text-sm text-gray-600">
+            No account?{" "}
+            <Link to="/register" className="font-medium text-gray-900 underline underline-offset-2">
+              Create one
+            </Link>
+          </div>
         </div>
       </Card>
     </div>

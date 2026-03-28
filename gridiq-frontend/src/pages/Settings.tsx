@@ -10,9 +10,7 @@ export default function Settings() {
   }, [useMocks]);
 
   useEffect(() => {
-    localStorage.setItem("gridiq_api_base", apiBase);
-    // also update axios instance directly if imported
-    import("../lib/api/client").then((mod) => mod.setApiBaseUrl(apiBase));
+    void import("../lib/api/client").then((mod) => mod.setApiBaseUrl(apiBase));
   }, [apiBase]);
 
   return (
@@ -42,7 +40,7 @@ export default function Settings() {
           <input
             className="w-full rounded border-gray-300 p-2"
             value={apiBase}
-            placeholder="http://localhost:8080"
+            placeholder="http://localhost:8000"
             onChange={(e) => setApiBase(e.target.value)}
           />
           <div className="text-xs text-gray-500">

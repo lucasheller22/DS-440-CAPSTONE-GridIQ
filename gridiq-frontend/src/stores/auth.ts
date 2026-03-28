@@ -1,6 +1,8 @@
+import axios from "axios";
 import { create } from "zustand";
 import type { User } from "../types";
-import * as api from "../lib/api/endpoints";
+import { api } from "../lib/api/client";
+import * as apiEndpoints from "../lib/api/endpoints";
 
 type AuthState = {
   user: User | null;
@@ -19,10 +21,17 @@ export const useAuth = create<AuthState>((set, get) => ({
   async login(email, password) {
     set({ isLoading: true });
     try {
-      const { token, user } = await api.login(email, password);
+      const { token, user } = await apiEndpoints.login(email, password);
       localStorage.setItem("gridiq_token", token);
       localStorage.setItem("gridiq_user", JSON.stringify(user));
       set({ token, user });
+    } catch (e) {
+      if (axios.isAxiosError(e) && !e.response) {
+        throw new Error(
+          `Cannot reach the API at ${api.defaults.baseURL}. Start the backend (uvicorn on port 8000), or in Settings enable "Use local mocks" / clear a bad API base URL.`,
+        );
+      }
+      throw e;
     } finally {
       set({ isLoading: false });
     }
@@ -33,7 +42,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     if (!token) return;
     set({ isLoading: true });
     try {
-      const user = await api.me();
+      const user = await apiEndpoints.me();
       set({ token, user });
     } catch {
       get().logout();
@@ -45,7 +54,7 @@ export const useAuth = create<AuthState>((set, get) => ({
   logout() {
     localStorage.removeItem("gridiq_token");
     localStorage.removeItem("gridiq_user");
-    api.clearAllThreadMessages();
+    apiEndpoints.clearAllThreadMessages();
     set({ token: null, user: null });
   },
 }));

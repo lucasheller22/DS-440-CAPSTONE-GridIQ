@@ -1,21 +1,33 @@
 import axios from "axios";
 
-// base URL can be overridden at runtime via localStorage (settings page) or
-// build‑time with VITE_API_BASE_URL.
-const runtimeBase = localStorage.getItem("gridiq_api_base") || undefined;
+export function getDefaultApiBase(): string {
+  return import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+}
 
-// Default to backend local dev default (8000). 8080 is for static assets in some setups.
-const defaultBase = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+function readStoredApiBase(): string | undefined {
+  const raw = localStorage.getItem("gridiq_api_base");
+  const trimmed = raw?.trim();
+  return trimmed || undefined;
+}
+
+const runtimeBase = readStoredApiBase();
+const defaultBase = getDefaultApiBase();
 
 export const api = axios.create({
   baseURL: runtimeBase ?? defaultBase,
   timeout: 15000,
 });
 
-// allow changing baseURL after creation
+/** Persisted override from Settings. Empty string clears the override and restores the default. */
 export function setApiBaseUrl(url: string) {
-  api.defaults.baseURL = url;
-  localStorage.setItem("gridiq_api_base", url);
+  const trimmed = url.trim();
+  if (!trimmed) {
+    localStorage.removeItem("gridiq_api_base");
+    api.defaults.baseURL = getDefaultApiBase();
+    return;
+  }
+  api.defaults.baseURL = trimmed;
+  localStorage.setItem("gridiq_api_base", trimmed);
 }
 
 api.interceptors.request.use((config) => {

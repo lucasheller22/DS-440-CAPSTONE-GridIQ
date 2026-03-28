@@ -2,11 +2,10 @@ import { z } from "zod";
 import { api } from "./client";
 import type { ChatMessage, Game, Play, User } from "../../types";
 
-// helper used throughout the module so the "use mocks" toggle can be
-// changed at runtime via settings.  Use VITE_USE_MOCKS=true to run offline.
-const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === "true";
+// Mocks: build-time VITE_USE_MOCKS=true, or Settings → "Use local mocks" (localStorage).
 function useMocks() {
-  return USE_MOCKS;
+  if (import.meta.env.VITE_USE_MOCKS === "true") return true;
+  return localStorage.getItem("gridiq_use_mocks") === "true";
 }
 
 const getThreadKey = (threadId: string) => `gridiq_thread_${threadId}`;

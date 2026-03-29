@@ -1,6 +1,7 @@
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from dotenv import load_dotenv
 
 from app.api.deps import get_db, get_current_user
 from app.models.conversation import Conversation, Message
@@ -14,9 +15,33 @@ from app.schemas.conversation import (
     ChatResponseSchema,
     MessageCreateSchema,
 )
-from app.core.config import get_settings
+from app.core.config import Settings, _DEFAULT_ENV_FILE
 
 router = APIRouter()
+
+
+def _parse_env_file_value(name: str) -> str:
+    """Last-resort read from gridiq-backend/.env if os.environ/Settings miss a key (Windows/editor quirks)."""
+    if not _DEFAULT_ENV_FILE.is_file():
+        return ""
+    try:
+        text = _DEFAULT_ENV_FILE.read_text(encoding="utf-8-sig")
+    except OSError:
+        return ""
+    prefix = f"{name}="
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith(prefix):
+            return line[len(prefix) :].strip().strip('"').strip("'")
+    return ""
+
+
+def _load_chat_settings() -> Settings:
+    """Fresh .env load + Settings so each chat message sees current keys (avoids stale process/cache)."""
+    load_dotenv(_DEFAULT_ENV_FILE, override=True, encoding="utf-8-sig")
+    return Settings()
 
 
 FOOTBALL_COACH_SYSTEM_PROMPT = """You are an expert AI football coach for GridIQ. You provide:
@@ -71,28 +96,92 @@ def _build_user_content(user_message: str, conversation_context: str) -> str:
 def get_ai_response(user_message: str, conversation_context: str, db: Session) -> tuple[str, int, str]:
     """Return (assistant_text, token_count, model_id). Uses Gemini if configured, else OpenAI, else instructions."""
     user_content = _build_user_content(user_message, conversation_context)
-    settings = get_settings()
+    settings = _load_chat_settings()
+    gemini_key = (settings.GEMINI_API_KEY or _parse_env_file_value("GEMINI_API_KEY")).strip()
+    openai_key = (settings.OPENAI_API_KEY or _parse_env_file_value("OPENAI_API_KEY")).strip()
 
-    if settings.GEMINI_API_KEY.strip():
+    if gemini_key:
         try:
             import google.generativeai as genai
+            from google.api_core import exceptions as google_exc
 
-            genai.configure(api_key=settings.GEMINI_API_KEY)
-            model_name = settings.GEMINI_MODEL
-            model = genai.GenerativeModel(model_name)
+            genai.configure(api_key=gemini_key)
             prompt = f"{FOOTBALL_COACH_SYSTEM_PROMPT}\n\n{user_content}"
-            response = model.generate_content(prompt)
-            assistant_message = response.text or ""
+
+            # v1beta expects versioned IDs (e.g. gemini-1.5-flash-001); bare gemini-1.5-flash returns 404.
+            fallback_models = (
+                "gemini-2.0-flash",
+                "gemini-1.5-flash-002",
+                "gemini-1.5-flash-001",
+            )
+            model_try: list[str] = []
+            for m in (settings.GEMINI_MODEL, *fallback_models):
+                if m and m.strip() and m.strip() not in model_try:
+                    model_try.append(m.strip())
+
+            last_err: Exception | None = None
+            response = None
+            model_name = model_try[0]
+            for mname in model_try:
+                try:
+                    model = genai.GenerativeModel(mname)
+                    response = model.generate_content(prompt)
+                    model_name = mname
+                    break
+                except google_exc.PermissionDenied as e:
+                    raise HTTPException(
+                        status_code=503,
+                        detail=(
+                            "Gemini rejected this API key (for example it was revoked or flagged as leaked). "
+                            "Create a **new** key at https://aistudio.google.com/apikey , put it in "
+                            "**gridiq-backend/.env** as GEMINI_API_KEY, restart the backend, and do not commit or "
+                            f"paste the key in chat or public repos. Google said: {e}"
+                        ),
+                    ) from e
+                except (google_exc.ResourceExhausted, google_exc.NotFound) as e:
+                    last_err = e
+                    continue
+
+            if response is None:
+                detail = (
+                    "Gemini quota exceeded for the models we tried, or your API project has no access. "
+                    f"Last error: {last_err}. Try again later, set GEMINI_MODEL in .env to a model from "
+                    "https://ai.google.dev/gemini-api/docs/models or add OPENAI_API_KEY."
+                )
+                if last_err and isinstance(last_err, google_exc.NotFound):
+                    detail = (
+                        "Gemini model not available for this API/version (tried: "
+                        + ", ".join(model_try)
+                        + "). Set GEMINI_MODEL in gridiq-backend/.env to a valid ID from "
+                        "https://ai.google.dev/gemini-api/docs/models. Last error: "
+                        f"{last_err}"
+                    )
+                raise HTTPException(status_code=503, detail=detail) from last_err
+
+            try:
+                assistant_message = (response.text or "").strip()
+            except ValueError:
+                assistant_message = ""
+                if getattr(response, "candidates", None):
+                    c0 = response.candidates[0]
+                    if c0.content and c0.content.parts:
+                        assistant_message = "".join(
+                            getattr(p, "text", "") or "" for p in c0.content.parts
+                        ).strip()
+                if not assistant_message and getattr(response, "prompt_feedback", None):
+                    assistant_message = f"(Gemini blocked or empty reply: {response.prompt_feedback})"
             tokens_used = response.usage_metadata.total_token_count if response.usage_metadata else 0
             return assistant_message, tokens_used, model_name
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Gemini error: {str(e)}") from e
 
-    if settings.OPENAI_API_KEY.strip():
+    if openai_key:
         try:
             from openai import OpenAI
 
-            client = OpenAI(api_key=settings.OPENAI_API_KEY)
+            client = OpenAI(api_key=openai_key)
             model_name = settings.OPENAI_CHAT_MODEL
             completion = client.chat.completions.create(
                 model=model_name,
@@ -112,7 +201,7 @@ def get_ai_response(user_message: str, conversation_context: str, db: Session) -
         "No AI API key is configured. Add one of these to **gridiq-backend/.env** and restart the server:\n\n"
         "- **GEMINI_API_KEY** — get a key at https://aistudio.google.com/apikey\n"
         "- **OPENAI_API_KEY** — get a key at https://platform.openai.com/api-keys\n\n"
-        "Optional: **OPENAI_CHAT_MODEL** (default `gpt-4o-mini`). **GEMINI_MODEL** defaults to `gemini-1.5-flash`."
+        "Optional: **OPENAI_CHAT_MODEL** (default `gpt-4o-mini`). **GEMINI_MODEL** defaults to `gemini-2.0-flash`."
     )
     return fallback, 0, "none"
 

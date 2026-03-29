@@ -1,5 +1,5 @@
 from sqlalchemy import String, DateTime, Integer, Float, Boolean, func, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 from app.core.db import Base
 
 
@@ -26,8 +26,8 @@ class Game(Base):
     created_at: Mapped["DateTime"] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped["DateTime"] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    # Relationships
-    plays: Mapped[list["Play"]] = relationship("Play", back_populates="game", cascade="all, delete-orphan")
+    # Intentionally no ORM relationship to Play yet: Play is denormalized and does not
+    # declare a ForeignKey to games.id/game_id in this schema.
 
 
 class Play(Base):

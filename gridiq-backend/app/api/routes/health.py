@@ -18,5 +18,4 @@ def health_ai():
         "env_file_path": str(_DEFAULT_ENV_FILE),
         "env_file_exists": _DEFAULT_ENV_FILE.is_file(),
         "gemini_configured": bool(s.GEMINI_API_KEY.strip()),
-        "openai_configured": bool(s.OPENAI_API_KEY.strip()),
     }

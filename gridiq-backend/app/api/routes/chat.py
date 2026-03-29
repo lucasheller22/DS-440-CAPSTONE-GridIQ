@@ -94,11 +94,10 @@ def _build_user_content(user_message: str, conversation_context: str) -> str:
 
 
 def get_ai_response(user_message: str, conversation_context: str, db: Session) -> tuple[str, int, str]:
-    """Return (assistant_text, token_count, model_id). Uses Gemini if configured, else OpenAI, else instructions."""
+    """Return (assistant_text, token_count, model_id). Uses Gemini if configured, else setup instructions."""
     user_content = _build_user_content(user_message, conversation_context)
     settings = _load_chat_settings()
     gemini_key = (settings.GEMINI_API_KEY or _parse_env_file_value("GEMINI_API_KEY")).strip()
-    openai_key = (settings.OPENAI_API_KEY or _parse_env_file_value("OPENAI_API_KEY")).strip()
 
     if gemini_key:
         try:
@@ -148,8 +147,8 @@ def get_ai_response(user_message: str, conversation_context: str, db: Session) -
             if response is None:
                 detail = (
                     "Gemini quota exceeded for the models we tried, or your API project has no access. "
-                    f"Last error: {last_err}. Try again later, set GEMINI_MODEL in .env to a model from "
-                    "https://ai.google.dev/gemini-api/docs/models or add OPENAI_API_KEY."
+                    f"Last error: {last_err}. Try again later or set GEMINI_MODEL in .env to a model from "
+                    "https://ai.google.dev/gemini-api/docs/models."
                 )
                 if last_err and isinstance(last_err, google_exc.NotFound):
                     detail = (
@@ -180,31 +179,10 @@ def get_ai_response(user_message: str, conversation_context: str, db: Session) -
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Gemini error: {str(e)}") from e
 
-    if openai_key:
-        try:
-            from openai import OpenAI
-
-            client = OpenAI(api_key=openai_key)
-            model_name = settings.OPENAI_CHAT_MODEL
-            completion = client.chat.completions.create(
-                model=model_name,
-                messages=[
-                    {"role": "system", "content": FOOTBALL_COACH_SYSTEM_PROMPT},
-                    {"role": "user", "content": user_content},
-                ],
-            )
-            choice = completion.choices[0]
-            assistant_message = (choice.message.content or "").strip()
-            tokens_used = completion.usage.total_tokens if completion.usage else 0
-            return assistant_message, tokens_used, model_name
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"OpenAI error: {str(e)}") from e
-
     fallback = (
-        "No AI API key is configured. Add one of these to **gridiq-backend/.env** and restart the server:\n\n"
-        "- **GEMINI_API_KEY** — get a key at https://aistudio.google.com/apikey\n"
-        "- **OPENAI_API_KEY** — get a key at https://platform.openai.com/api-keys\n\n"
-        "Optional: **OPENAI_CHAT_MODEL** (default `gpt-4o-mini`). **GEMINI_MODEL** defaults to `gemini-2.5-flash`."
+        "No **GEMINI_API_KEY** is configured. Add it to **gridiq-backend/.env** and restart the server:\n\n"
+        "- Get a key at https://aistudio.google.com/apikey\n\n"
+        "Optional: **GEMINI_MODEL** (default `gemini-2.5-flash`)."
     )
     return fallback, 0, "none"
 

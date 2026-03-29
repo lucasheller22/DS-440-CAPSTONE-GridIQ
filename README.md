@@ -32,7 +32,7 @@ GridIQ is an **AI assistant coach for American football**. The goal is to help p
 
 - **Frontend:** React + TypeScript + Vite
 - **Backend:** Python services + REST API (expanding toward an API gateway and data layer)
-- **AI:** Google Gemini or OpenAI (at least one API key for live chat)
+- **AI:** Google Gemini (API key for live chat)
 - **Data:** NFL play-by-play dataset(s), normalized for querying/analytics
 
 ---
@@ -83,7 +83,7 @@ The backend implements a comprehensive database schema with the following models
 
 ### Key Features
 
-✅ **AI Football Coach** — Gemini or OpenAI with football-focused prompting  
+✅ **AI Football Coach** — Gemini with football-focused prompting  
 ✅ **NFL Data Integration** — Real play-by-play data from nflverse (1999-present)  
 ✅ **Conversation Memory** — Store and retrieve full chat history  
 ✅ **Advanced Metrics** — EPA, WPA, air yards, yards-after-catch  
@@ -99,7 +99,7 @@ The backend implements a comprehensive database schema with the following models
 ### Prerequisites
 - **Node.js 18+** (recommended: 20+)
 - **Python 3.10+**
-- A **Gemini** and/or **OpenAI** API key (for live AI chat; backend uses Gemini first if set, otherwise OpenAI)
+- A **Gemini** API key (for live AI chat)
 - Optional: **PostgreSQL** (or configured database via `DATABASE_URL`). Local SQLite works by default.
 
 ### Environment Setup
@@ -110,7 +110,6 @@ ENV=dev
 DATABASE_URL=sqlite:///./gridiq.db
 JWT_SECRET=your-secret-key-here
 GEMINI_API_KEY=your-gemini-api-key-here
-OPENAI_API_KEY=
 ```
 
 ### 1) Clone
@@ -137,8 +136,7 @@ Required keys in `.env`:
 - `JWT_SECRET` (choose a strong secret)
 - `JWT_ALG=HS256`
 - `ACCESS_TOKEN_MINUTES=30`
-- `GEMINI_API_KEY` (optional; if set, chat uses Google Gemini)
-- `OPENAI_API_KEY` (optional; if Gemini is unset, chat uses OpenAI with `OPENAI_CHAT_MODEL`, default `gpt-4o-mini`)
+- `GEMINI_API_KEY` (required for live chat; Google Gemini)
 - `CORS_ORIGINS` (optional CSV of allowed frontend origins)
 - `ENV=dev`
 
@@ -326,9 +324,8 @@ gridiq-frontend/
 |----------|-------------|---------|
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@localhost:5432/gridiq` |
 | `JWT_SECRET` | Secret key for signing JWTs | `super-secret-key` |
-| `GEMINI_API_KEY` | Gemini API key (used first if set) | `AIza...` |
-| `OPENAI_API_KEY` | OpenAI key if Gemini is unset | `sk-...` |
-| `OPENAI_CHAT_MODEL` | OpenAI model id | `gpt-4o-mini` |
+| `GEMINI_API_KEY` | Gemini API key | `AIza...` |
+| `GEMINI_MODEL` | Gemini model id | `gemini-2.5-flash` |
 | `CORS_ORIGINS` | Comma-separated allowed frontend origins | `http://localhost:5173,http://127.0.0.1:5173` |
 | `ENV` | Environment mode | `dev` or `prod` |
 
@@ -352,8 +349,8 @@ gridiq-frontend/
 - Verify database connection: `psql postgresql://user:password@localhost:5432/gridiq`
 
 **AI chat not responding:**
-- Set **`GEMINI_API_KEY`** and/or **`OPENAI_API_KEY`** in `gridiq-backend/.env`, then restart uvicorn
-- If both are empty, chat returns setup instructions instead of football answers
+- Set **`GEMINI_API_KEY`** in `gridiq-backend/.env`, then restart uvicorn
+- If it is empty, chat returns setup instructions instead of football answers
 
 **Frontend can't connect to backend:**
 - Ensure backend is running on `http://localhost:8000`

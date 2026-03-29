@@ -204,7 +204,7 @@ export async function sendMessage(threadId: string | null, content: string): Pro
     return { conversationId };
   }
 
-  // Gemini/OpenAI first calls often exceed the default 15s axios timeout.
+  // Gemini first calls often exceed the default 15s axios timeout.
   const resp = await api.post(
     `/api/chat/chat`,
     {

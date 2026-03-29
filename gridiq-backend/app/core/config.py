@@ -18,8 +18,6 @@ class Settings(BaseSettings):
     JWT_ALG: str = "HS256"
     ACCESS_TOKEN_MINUTES: int = 30
 
-    #OPENAI_API_KEY: str = ""
-    #OPENAI_CHAT_MODEL: str = "gpt-4o-mini"
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.5-flash"
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000"
@@ -27,7 +25,7 @@ class Settings(BaseSettings):
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
-    @field_validator("GEMINI_API_KEY", "OPENAI_API_KEY", mode="before")
+    @field_validator("GEMINI_API_KEY", mode="before")
     @classmethod
     def strip_api_keys(cls, v: object) -> object:
         if isinstance(v, str):

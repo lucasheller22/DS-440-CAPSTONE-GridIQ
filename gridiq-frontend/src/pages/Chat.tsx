@@ -103,9 +103,10 @@ export default function Chat() {
             New conversation
           </Button>
         </div>
-        <p className="text-xs text-gray-500">
-          If you already fixed your API key but still see the “no key” message, that text may be from an old reply stored
-          in this thread—use New conversation, then send again.
+        <p className="text-xs text-amber-900/80 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+          Setup instructions (including any mention of <strong>OpenAI</strong>) can be <strong>old bubbles saved in the
+          database</strong>, not what the server would say today. Click <strong>New conversation</strong>, then send a
+          message—the thread id in your browser resets so you only load fresh replies.
         </p>
         <div className="h-[52vh] space-y-2 overflow-auto rounded-xl border border-gray-100 bg-white p-3">
           {isLoadError ? (

@@ -48,5 +48,5 @@ class ChatResponseSchema(BaseModel):
     conversation_id: str
     user_message: str
     assistant_message: str
-    model: str = "gemini-1.5-flash"
+    model: str = "gemini-2.5-flash"
     tokens_used: int

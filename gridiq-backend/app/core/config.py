@@ -1,4 +1,11 @@
-from pydantic_settings import BaseSettings
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Always load gridiq-backend/.env (not the process cwd). Avoids "no API key" when
+# uvicorn is started from the monorepo root or another directory.
+_BACKEND_ROOT = Path(__file__).resolve().parents[2]
+_DEFAULT_ENV_FILE = _BACKEND_ROOT / ".env"
 
 
 class Settings(BaseSettings):
@@ -18,8 +25,7 @@ class Settings(BaseSettings):
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=str(_DEFAULT_ENV_FILE), env_file_encoding="utf-8")
 
 
 settings = Settings()

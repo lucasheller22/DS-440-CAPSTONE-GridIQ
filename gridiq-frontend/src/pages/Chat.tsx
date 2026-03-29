@@ -80,6 +80,23 @@ export default function Chat() {
       </div>
 
       <Card className="space-y-3">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            variant="ghost"
+            type="button"
+            onClick={() => {
+              localStorage.removeItem(threadIdStorageKey);
+              setThreadId(null);
+              void qc.invalidateQueries({ queryKey: ["thread"] });
+            }}
+          >
+            New conversation
+          </Button>
+        </div>
+        <p className="text-xs text-gray-500">
+          If you already fixed your API key but still see the “no key” message, that text may be from an old reply stored
+          in this thread—use New conversation, then send again.
+        </p>
         <div className="h-[52vh] space-y-2 overflow-auto rounded-xl border border-gray-100 bg-white p-3">
           {isLoadError ? (
             <div className="text-sm text-red-700">

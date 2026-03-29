@@ -17,7 +17,6 @@ from app.schemas.conversation import (
 from app.core.config import get_settings
 
 router = APIRouter()
-settings = get_settings()
 
 
 FOOTBALL_COACH_SYSTEM_PROMPT = """You are an expert AI football coach for GridIQ. You provide:
@@ -72,6 +71,7 @@ def _build_user_content(user_message: str, conversation_context: str) -> str:
 def get_ai_response(user_message: str, conversation_context: str, db: Session) -> tuple[str, int, str]:
     """Return (assistant_text, token_count, model_id). Uses Gemini if configured, else OpenAI, else instructions."""
     user_content = _build_user_content(user_message, conversation_context)
+    settings = get_settings()
 
     if settings.GEMINI_API_KEY.strip():
         try:

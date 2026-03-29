@@ -107,19 +107,22 @@ def get_ai_response(user_message: str, conversation_context: str, db: Session) -
             genai.configure(api_key=gemini_key)
             prompt = f"{FOOTBALL_COACH_SYSTEM_PROMPT}\n\n{user_content}"
 
-            # Older IDs (e.g. gemini-1.5-flash-001) and gemini-2.0-flash often 404 or hit free-tier limit:0;
-            # prefer current flash models from list_models / https://ai.google.dev/gemini-api/docs/models
+            # Always try a known-good id first. If GEMINI_MODEL in .env is wrong (404), trying it first burns calls
+            # and matches "requests + errors" on the AI Studio chart while the UI shows no new reply (503 → rollback).
+            primary = "gemini-2.5-flash"
             fallback_models = (
-                "gemini-2.5-flash",
                 "gemini-flash-latest",
+                "gemini-2.5-flash-lite",
                 "gemini-2.0-flash-001",
                 "gemini-2.0-flash-lite",
                 "gemini-2.0-flash",
             )
             model_try: list[str] = []
-            for m in (settings.GEMINI_MODEL, *fallback_models):
-                if m and m.strip() and m.strip() not in model_try:
-                    model_try.append(m.strip())
+            for m in (primary, settings.GEMINI_MODEL, *fallback_models):
+                if m and m.strip():
+                    name = m.strip()
+                    if name not in model_try:
+                        model_try.append(name)
 
             last_err: Exception | None = None
             response = None
@@ -328,13 +331,31 @@ def chat(
     # Build football context from recent plays
     football_context = build_football_context(db)
     
-    # Get AI response
-    assistant_message, tokens_used, model_used = get_ai_response(
-        payload.message,
-        football_context,
-        db,
-    )
-    
+    # Get AI response (on Gemini 503/500, persist explanation so the thread updates instead of only an HTTP error panel).
+    try:
+        assistant_message, tokens_used, model_used = get_ai_response(
+            payload.message,
+            football_context,
+            db,
+        )
+    except HTTPException as exc:
+        detail: str
+        if isinstance(exc.detail, str):
+            detail = exc.detail
+        elif isinstance(exc.detail, list):
+            detail = "; ".join(str(item) for item in exc.detail)
+        else:
+            detail = str(exc.detail)
+        assistant_message = (
+            "The AI request did not complete successfully.\n\n"
+            f"{detail}\n\n"
+            "If Google AI Studio shows **404**, the model name may be invalid for your project. "
+            "If it shows **429**, you hit quota or rate limits. Set **GEMINI_MODEL=gemini-2.5-flash** in "
+            "`gridiq-backend/.env`, restart uvicorn, and send again."
+        )
+        tokens_used = 0
+        model_used = "error"
+
     # Save assistant message
     assistant_message_obj = Message(
         id=f"msg_{uuid.uuid4().hex}",

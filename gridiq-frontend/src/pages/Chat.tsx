@@ -5,6 +5,7 @@ import { Button } from "../ui/primitives/Button";
 import { Input } from "../ui/primitives/Input";
 import * as api from "../lib/api/endpoints";
 import type { ChatMessage } from "../types";
+import axios from "axios";
 
 function MessageBubble({ msg }: { msg: ChatMessage }) {
   const isUser = msg.role === "user";
@@ -72,6 +73,20 @@ export default function Chat() {
             messages.map((m) => <MessageBubble key={m.id} msg={m} />)
           )}
         </div>
+
+        {send.isError ? (
+          <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
+            {(() => {
+              const err = send.error;
+              if (axios.isAxiosError(err)) {
+                const detail = err.response?.data?.detail;
+                if (typeof detail === "string") return detail;
+                return err.message;
+              }
+              return err instanceof Error ? err.message : "Failed to send message";
+            })()}
+          </div>
+        ) : null}
 
         <div className="flex gap-2">
           <Input

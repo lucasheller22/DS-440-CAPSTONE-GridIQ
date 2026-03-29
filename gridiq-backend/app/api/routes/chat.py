@@ -46,6 +46,13 @@ def build_football_context(db: Session, team: str = None, season: int = None, we
 
 def get_ai_response(user_message: str, conversation_context: str, db: Session) -> tuple[str, int]:
     """Get response from Google Gemini with football context."""
+    if not settings.GEMINI_API_KEY:
+        fallback = (
+            "AI provider is not configured yet (missing GEMINI_API_KEY). "
+            "Set it in gridiq-backend/.env to enable live AI responses."
+        )
+        return fallback, 0
+
     try:
         import google.generativeai as genai
         

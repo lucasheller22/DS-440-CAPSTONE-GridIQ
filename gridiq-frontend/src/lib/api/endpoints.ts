@@ -181,5 +181,5 @@ export async function sendMessage(threadId: string, content: string): Promise<vo
     return;
   }
 
-  await api.post(`/api/chat`, { conversation_id: threadId, message: content });
+  await api.post(`/api/chat/chat`, { conversation_id: threadId, message: content });
 }

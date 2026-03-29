@@ -20,6 +20,23 @@ router = APIRouter()
 settings = get_settings()
 
 
+FOOTBALL_COACH_SYSTEM_PROMPT = """You are an expert AI football coach for GridIQ. You provide:
+- Clear explanations of football concepts and strategies
+- Analysis of game situations and play-calling decisions
+- Data-driven insights based on NFL statistics when context is provided
+- Coaching advice tailored to different skill levels
+- References to real NFL plays and teams when relevant
+
+When answering questions:
+1. Provide accurate football knowledge
+2. Reference statistics and data when available in the context below
+3. Explain concepts clearly and concisely
+4. Ask clarifying questions if needed
+5. Consider different skill levels (player, coach, fan)
+
+Use the provided NFL data context to enhance your responses when it is non-empty."""
+
+
 def build_football_context(db: Session, team: str = None, season: int = None, week: int = None) -> str:
     """Build football data context for AI from database."""
     context = ""
@@ -44,53 +61,60 @@ def build_football_context(db: Session, team: str = None, season: int = None, we
     return context
 
 
-def get_ai_response(user_message: str, conversation_context: str, db: Session) -> tuple[str, int]:
-    """Get response from Google Gemini with football context."""
-    if not settings.GEMINI_API_KEY:
-        fallback = (
-            "AI provider is not configured yet (missing GEMINI_API_KEY). "
-            "Set it in gridiq-backend/.env to enable live AI responses."
-        )
-        return fallback, 0
+def _build_user_content(user_message: str, conversation_context: str) -> str:
+    parts = []
+    if conversation_context.strip():
+        parts.append(f"NFL Data Context:\n{conversation_context}")
+    parts.append(f"User question:\n{user_message}")
+    return "\n\n".join(parts)
 
-    try:
-        import google.generativeai as genai
-        
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        # Build system prompt with football expertise
-        system_prompt = """You are an expert AI football coach for GridIQ. You provide:
-- Clear explanations of football concepts and strategies
-- Analysis of game situations and play-calling decisions
-- Data-driven insights based on NFL statistics
-- Coaching advice tailored to different skill levels
-- References to real NFL plays and teams when relevant
 
-When answering questions:
-1. Provide accurate football knowledge
-2. Reference statistics and data when available
-3. Explain concepts clearly and concisely
-4. Ask clarifying questions if needed
-5. Consider different skill levels (player, coach, fan)
+def get_ai_response(user_message: str, conversation_context: str, db: Session) -> tuple[str, int, str]:
+    """Return (assistant_text, token_count, model_id). Uses Gemini if configured, else OpenAI, else instructions."""
+    user_content = _build_user_content(user_message, conversation_context)
 
-Use the provided NFL data context to enhance your responses."""
-        
-        # Build the full prompt
-        prompt = system_prompt
-        if conversation_context:
-            prompt += f"\n\nNFL Data Context:\n{conversation_context}"
-        prompt += f"\n\nUser: {user_message}"
-        
-        response = model.generate_content(prompt)
-        
-        assistant_message = response.text
-        tokens_used = response.usage_metadata.total_token_count if response.usage_metadata else 0
-        
-        return assistant_message, tokens_used
-    
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
+    if settings.GEMINI_API_KEY.strip():
+        try:
+            import google.generativeai as genai
+
+            genai.configure(api_key=settings.GEMINI_API_KEY)
+            model_name = settings.GEMINI_MODEL
+            model = genai.GenerativeModel(model_name)
+            prompt = f"{FOOTBALL_COACH_SYSTEM_PROMPT}\n\n{user_content}"
+            response = model.generate_content(prompt)
+            assistant_message = response.text or ""
+            tokens_used = response.usage_metadata.total_token_count if response.usage_metadata else 0
+            return assistant_message, tokens_used, model_name
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Gemini error: {str(e)}") from e
+
+    if settings.OPENAI_API_KEY.strip():
+        try:
+            from openai import OpenAI
+
+            client = OpenAI(api_key=settings.OPENAI_API_KEY)
+            model_name = settings.OPENAI_CHAT_MODEL
+            completion = client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": FOOTBALL_COACH_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_content},
+                ],
+            )
+            choice = completion.choices[0]
+            assistant_message = (choice.message.content or "").strip()
+            tokens_used = completion.usage.total_tokens if completion.usage else 0
+            return assistant_message, tokens_used, model_name
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"OpenAI error: {str(e)}") from e
+
+    fallback = (
+        "No AI API key is configured. Add one of these to **gridiq-backend/.env** and restart the server:\n\n"
+        "- **GEMINI_API_KEY** — get a key at https://aistudio.google.com/apikey\n"
+        "- **OPENAI_API_KEY** — get a key at https://platform.openai.com/api-keys\n\n"
+        "Optional: **OPENAI_CHAT_MODEL** (default `gpt-4o-mini`). **GEMINI_MODEL** defaults to `gemini-1.5-flash`."
+    )
+    return fallback, 0, "none"
 
 
 @router.post("/conversations", response_model=ConversationSchema)
@@ -235,7 +259,7 @@ def chat(
     football_context = build_football_context(db)
     
     # Get AI response
-    assistant_message, tokens_used = get_ai_response(
+    assistant_message, tokens_used, model_used = get_ai_response(
         payload.message,
         football_context,
         db,
@@ -247,7 +271,7 @@ def chat(
         conversation_id=conversation.id,
         role="assistant",
         content=assistant_message,
-        model="gemini-1.5-flash",
+        model=model_used,
         tokens_used=tokens_used,
     )
     db.add(assistant_message_obj)
@@ -258,5 +282,6 @@ def chat(
         conversation_id=conversation.id,
         user_message=payload.message,
         assistant_message=assistant_message,
+        model=model_used,
         tokens_used=tokens_used,
     )

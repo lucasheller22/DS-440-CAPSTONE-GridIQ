@@ -68,6 +68,11 @@ export const useAuth = create<AuthState>((set, get) => ({
   async hydrate() {
     const token = localStorage.getItem("gridiq_token");
     if (!token) return;
+    // Mock sign-in uses a placeholder token that is not a valid JWT for the real API.
+    if (!apiEndpoints.mocksEnabled() && token === apiEndpoints.MOCK_AUTH_TOKEN) {
+      get().logout();
+      return;
+    }
     set({ isLoading: true });
     try {
       const user = await apiEndpoints.me();

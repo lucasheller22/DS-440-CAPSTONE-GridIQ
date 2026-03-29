@@ -1,13 +1,30 @@
 import { Card } from "../ui/primitives/Card";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../stores/auth";
+import { MOCK_AUTH_TOKEN } from "../lib/api/endpoints";
 
 export default function Settings() {
+  const navigate = useNavigate();
+  const logout = useAuth((s) => s.logout);
   const [useMocks, setUseMocks] = useState(() => localStorage.getItem("gridiq_use_mocks") === "true");
   const [apiBase, setApiBase] = useState(() => localStorage.getItem("gridiq_api_base") || "");
+  const mocksPrev = useRef(useMocks);
 
   useEffect(() => {
     localStorage.setItem("gridiq_use_mocks", useMocks ? "true" : "false");
-  }, [useMocks]);
+    if (mocksPrev.current && !useMocks) {
+      const t = localStorage.getItem("gridiq_token");
+      if (t === MOCK_AUTH_TOKEN) {
+        logout();
+        navigate("/login", {
+          replace: true,
+          state: { notice: "Mock mode is off. Sign in again with your real backend account." },
+        });
+      }
+    }
+    mocksPrev.current = useMocks;
+  }, [useMocks, logout, navigate]);
 
   useEffect(() => {
     void import("../lib/api/client").then((mod) => mod.setApiBaseUrl(apiBase));
@@ -32,7 +49,10 @@ export default function Settings() {
             />
             <span className="text-sm">Use local mocks (no backend)</span>
           </label>
-          <div className="text-sm text-gray-600">Toggle to run the UI without requiring a server.</div>
+          <div className="text-sm text-gray-600">
+            If you signed in while mocks were on, turning mock mode off will ask you to sign in again (mock uses a
+            placeholder token, not a real JWT).
+          </div>
         </div>
 
         <div className="space-y-1">

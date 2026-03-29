@@ -4,10 +4,17 @@ import { api } from "./client";
 import type { ChatMessage, Game, Play, User } from "../../types";
 
 // Mocks: build-time VITE_USE_MOCKS=true, or Settings → "Use local mocks" (localStorage).
-function useMocks() {
+export function mocksEnabled(): boolean {
   if (import.meta.env.VITE_USE_MOCKS === "true") return true;
   return localStorage.getItem("gridiq_use_mocks") === "true";
 }
+
+function useMocks() {
+  return mocksEnabled();
+}
+
+/** Mock login stores this string; it is not a real JWT and must not be sent to the API. */
+export const MOCK_AUTH_TOKEN = "dev-token";
 
 const getThreadKey = (threadId: string) => `gridiq_thread_${threadId}`;
 
@@ -46,7 +53,7 @@ export async function login(email: string, password: string): Promise<{ token: s
   if (useMocks()) {
     if (!email || !password) throw new Error("Missing credentials");
     const user: User = { id: "u_1", email, displayName: "Coach", role: "coach" };
-    const token = "dev-token";
+    const token = MOCK_AUTH_TOKEN;
     return { token, user };
   }
 
@@ -59,7 +66,7 @@ export async function register(email: string, password: string): Promise<{ token
     if (!email || !password) throw new Error("Missing credentials");
     if (password.length < 8) throw new Error("Password must be at least 8 characters");
     const user: User = { id: "u_1", email, displayName: "Coach", role: "coach" };
-    const token = "dev-token";
+    const token = MOCK_AUTH_TOKEN;
     return { token, user };
   }
 

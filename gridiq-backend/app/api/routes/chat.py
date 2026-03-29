@@ -107,18 +107,16 @@ def get_ai_response(user_message: str, conversation_context: str, db: Session) -
             genai.configure(api_key=gemini_key)
             prompt = f"{FOOTBALL_COACH_SYSTEM_PROMPT}\n\n{user_content}"
 
-            # Always try a known-good id first. If GEMINI_MODEL in .env is wrong (404), trying it first burns calls
-            # and matches "requests + errors" on the AI Studio chart while the UI shows no new reply (503 → rollback).
-            primary = "gemini-2.5-flash"
+            # Try GEMINI_MODEL from config/.env first (default: gemini-2.5-flash-lite), then fallbacks if 404/429.
             fallback_models = (
+                "gemini-2.5-flash",
                 "gemini-flash-latest",
-                "gemini-2.5-flash-lite",
                 "gemini-2.0-flash-001",
                 "gemini-2.0-flash-lite",
                 "gemini-2.0-flash",
             )
             model_try: list[str] = []
-            for m in (primary, settings.GEMINI_MODEL, *fallback_models):
+            for m in (settings.GEMINI_MODEL, *fallback_models):
                 if m and m.strip():
                     name = m.strip()
                     if name not in model_try:
@@ -183,9 +181,11 @@ def get_ai_response(user_message: str, conversation_context: str, db: Session) -
             raise HTTPException(status_code=500, detail=f"Gemini error: {str(e)}") from e
 
     fallback = (
-        "No **GEMINI_API_KEY** is configured. Add it to **gridiq-backend/.env** and restart the server:\n\n"
-        "- Get a key at https://aistudio.google.com/apikey\n\n"
-        "Optional: **GEMINI_MODEL** (default `gemini-2.5-flash`)."
+        "No **GEMINI_API_KEY** is configured (Gemini only—OpenAI is not used). "
+        "Add it to **gridiq-backend/.env** and restart the server.\n\n"
+        "- Create a key at https://aistudio.google.com/apikey\n"
+        "- Optional: **GEMINI_MODEL** (default `gemini-2.5-flash-lite`).\n\n"
+        "_If you see older text mentioning OpenAI, that was saved chat history in SQLite—not this server build._"
     )
     return fallback, 0, "none"
 
@@ -346,13 +346,24 @@ def chat(
             detail = "; ".join(str(item) for item in exc.detail)
         else:
             detail = str(exc.detail)
-        assistant_message = (
-            "The AI request did not complete successfully.\n\n"
-            f"{detail}\n\n"
-            "If Google AI Studio shows **404**, the model name may be invalid for your project. "
-            "If it shows **429**, you hit quota or rate limits. Set **GEMINI_MODEL=gemini-2.5-flash** in "
-            "`gridiq-backend/.env`, restart uvicorn, and send again."
-        )
+
+        detail_lower = detail.lower()
+        if "spending cap" in detail_lower or "exceeded its spending" in detail_lower:
+            hint = (
+                "**Google blocked the request because of a billing / spending limit on this Cloud or AI Studio project**, "
+                "not because of GridIQ code. Open Google Cloud Console → Billing for the project tied to your API key, "
+                "and raise or remove the monthly budget / spending cap, or fix payment. "
+                "Also check APIs & Services and usage in Google AI Studio. "
+                "Until billing allows charges again, every model may keep returning 429."
+            )
+        else:
+            hint = (
+                "If Google AI Studio shows **404**, the model name may be invalid for your project. "
+                "If it shows **429** for quota only (not spending cap), try again later or set **GEMINI_MODEL=gemini-2.5-flash-lite** in "
+                "`gridiq-backend/.env`, restart uvicorn, and send again."
+            )
+
+        assistant_message = "The AI request did not complete successfully.\n\n" f"{detail}\n\n" f"{hint}"
         tokens_used = 0
         model_used = "error"
 

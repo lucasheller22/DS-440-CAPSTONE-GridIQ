@@ -104,9 +104,10 @@ export default function Chat() {
           </Button>
         </div>
         <p className="text-xs text-amber-900/80 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-          Setup instructions (including any mention of <strong>OpenAI</strong>) can be <strong>old bubbles saved in the
-          database</strong>, not what the server would say today. Click <strong>New conversation</strong>, then send a
-          message—the thread id in your browser resets so you only load fresh replies.
+          Bubbles are loaded from the server database. If you still see old setup text (e.g. mentioning OpenAI), click{" "}
+          <strong>New conversation</strong> and send again. To wipe all chat history, stop uvicorn, delete{" "}
+          <strong>gridiq-backend/gridiq.db</strong> (and any stray <strong>gridiq.db</strong> in the monorepo root if you
+          ever started the server from the wrong folder), then restart and sign in again.
         </p>
         <div className="h-[52vh] space-y-2 overflow-auto rounded-xl border border-gray-100 bg-white p-3">
           {isLoadError ? (

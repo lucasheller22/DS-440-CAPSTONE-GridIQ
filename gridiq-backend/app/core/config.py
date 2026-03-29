@@ -9,21 +9,35 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_ENV_FILE = _BACKEND_ROOT / ".env"
 
+_DEFAULT_SQLITE_URL = "sqlite:///" + str((_BACKEND_ROOT / "gridiq.db").resolve()).replace("\\", "/")
+
 
 class Settings(BaseSettings):
     ENV: str = "dev"
-    DATABASE_URL: str = "sqlite:///./gridiq.db"
+    DATABASE_URL: str = _DEFAULT_SQLITE_URL
 
     JWT_SECRET: str = "change-me"
     JWT_ALG: str = "HS256"
     ACCESS_TOKEN_MINUTES: int = 30
 
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-2.5-flash-lite"
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000"
 
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def sqlite_relative_paths_use_backend_root(cls, v: object) -> object:
+        """`sqlite:///./gridiq.db` follows the shell cwd and can split data across two .db files; always anchor to this app folder."""
+        if not isinstance(v, str) or not v.startswith("sqlite:///./"):
+            return v
+        rel = v.removeprefix("sqlite:///./").lstrip("/\\")
+        if not rel:
+            return v
+        anchored = (_BACKEND_ROOT / rel).resolve()
+        return "sqlite:///" + str(anchored).replace("\\", "/")
 
     @field_validator("GEMINI_API_KEY", mode="before")
     @classmethod

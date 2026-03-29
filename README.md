@@ -325,7 +325,7 @@ gridiq-frontend/
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@localhost:5432/gridiq` |
 | `JWT_SECRET` | Secret key for signing JWTs | `super-secret-key` |
 | `GEMINI_API_KEY` | Gemini API key | `AIza...` |
-| `GEMINI_MODEL` | Gemini model id | `gemini-2.5-flash` |
+| `GEMINI_MODEL` | Gemini model id | `gemini-2.5-flash-lite` |
 | `CORS_ORIGINS` | Comma-separated allowed frontend origins | `http://localhost:5173,http://127.0.0.1:5173` |
 | `ENV` | Environment mode | `dev` or `prod` |
 

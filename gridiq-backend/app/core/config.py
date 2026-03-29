@@ -1,16 +1,13 @@
+from functools import lru_cache
 from pathlib import Path
 
 from dotenv import load_dotenv
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Always load gridiq-backend/.env (not the process cwd). Avoids "no API key" when
-# uvicorn is started from the monorepo root or another directory.
+# Path to gridiq-backend/.env (always this folder, never cwd).
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_ENV_FILE = _BACKEND_ROOT / ".env"
-
-# Pre-load into os.environ so empty shell vars cannot mask values from the file.
-load_dotenv(_DEFAULT_ENV_FILE, override=True)
 
 
 class Settings(BaseSettings):
@@ -24,7 +21,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     OPENAI_CHAT_MODEL: str = "gpt-4o-mini"
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-1.5-flash"
+    GEMINI_MODEL: str = "gemini-2.0-flash"
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000"
 
     def cors_origins(self) -> list[str]:
@@ -37,11 +34,17 @@ class Settings(BaseSettings):
             return v.strip()
         return v
 
-    model_config = SettingsConfigDict(env_file=str(_DEFAULT_ENV_FILE), env_file_encoding="utf-8")
+    # Read only os.environ (populated by load_dotenv below). Avoid pydantic merging env_file
+    # in a way that drops keys when cwd or precedence differs between machines.
+    model_config = SettingsConfigDict(extra="ignore")
 
 
-settings = Settings()
-
-
+@lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    return settings
+    """Load .env into os.environ, then build settings (single cached instance per process)."""
+    # utf-8-sig strips UTF-8 BOM from files saved by some Windows editors.
+    load_dotenv(_DEFAULT_ENV_FILE, override=True, encoding="utf-8-sig")
+    return Settings()
+
+
+settings = get_settings()

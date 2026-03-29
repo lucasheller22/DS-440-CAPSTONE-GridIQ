@@ -70,6 +70,8 @@ export default function Chat() {
     // Optional: setup streaming (SSE/WebSocket) once backend supports it.
   }, []);
 
+  const mocksOn = api.mocksEnabled();
+
   return (
     <div className="space-y-4">
       <div>
@@ -78,6 +80,14 @@ export default function Chat() {
           Threaded chat UI using backend Chat API (real auth + persistence). Implement streaming once available.
         </div>
       </div>
+
+      {mocksOn ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <span className="font-medium">Local mocks are on.</span> Chat never hits your backend or Gemini—replies are fake.
+          Turn off <span className="font-medium">Settings → Use local mocks</span>, make sure the API is running on port 8000,
+          then sign in again.
+        </div>
+      ) : null}
 
       <Card className="space-y-3">
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -117,6 +127,10 @@ export default function Chat() {
           )}
         </div>
 
+        {send.isPending ? (
+          <p className="text-xs text-gray-500">Waiting for the model (first reply can take 20–90 seconds)…</p>
+        ) : null}
+
         {send.isError ? (
           <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
             {(() => {
@@ -124,6 +138,9 @@ export default function Chat() {
               if (axios.isAxiosError(err)) {
                 const detail = err.response?.data?.detail;
                 if (typeof detail === "string") return detail;
+                if (err.code === "ECONNABORTED") {
+                  return "Request timed out. If the backend is slow or cold-starting Gemini, try again—or we can raise the timeout further.";
+                }
                 return err.message;
               }
               return err instanceof Error ? err.message : "Failed to send message";

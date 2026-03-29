@@ -108,11 +108,14 @@ def get_ai_response(user_message: str, conversation_context: str, db: Session) -
             genai.configure(api_key=gemini_key)
             prompt = f"{FOOTBALL_COACH_SYSTEM_PROMPT}\n\n{user_content}"
 
-            # v1beta expects versioned IDs (e.g. gemini-1.5-flash-001); bare gemini-1.5-flash returns 404.
+            # Older IDs (e.g. gemini-1.5-flash-001) and gemini-2.0-flash often 404 or hit free-tier limit:0;
+            # prefer current flash models from list_models / https://ai.google.dev/gemini-api/docs/models
             fallback_models = (
+                "gemini-2.5-flash",
+                "gemini-flash-latest",
+                "gemini-2.0-flash-001",
+                "gemini-2.0-flash-lite",
                 "gemini-2.0-flash",
-                "gemini-1.5-flash-002",
-                "gemini-1.5-flash-001",
             )
             model_try: list[str] = []
             for m in (settings.GEMINI_MODEL, *fallback_models):
@@ -201,7 +204,7 @@ def get_ai_response(user_message: str, conversation_context: str, db: Session) -
         "No AI API key is configured. Add one of these to **gridiq-backend/.env** and restart the server:\n\n"
         "- **GEMINI_API_KEY** — get a key at https://aistudio.google.com/apikey\n"
         "- **OPENAI_API_KEY** — get a key at https://platform.openai.com/api-keys\n\n"
-        "Optional: **OPENAI_CHAT_MODEL** (default `gpt-4o-mini`). **GEMINI_MODEL** defaults to `gemini-2.0-flash`."
+        "Optional: **OPENAI_CHAT_MODEL** (default `gpt-4o-mini`). **GEMINI_MODEL** defaults to `gemini-2.5-flash`."
     )
     return fallback, 0, "none"
 

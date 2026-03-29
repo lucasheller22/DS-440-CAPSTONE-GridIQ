@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from app.api.routes import health, auth, users, chat, games, cache
 from app.core.db import engine, Base
+from app.core.config import settings
 import app.models  # register models for metadata
 
 app = FastAPI(title="GridIQ Backend", version="0.1.0")
@@ -25,7 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # Update / lock down origins for production deployments.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"],
+    allow_origins=settings.cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

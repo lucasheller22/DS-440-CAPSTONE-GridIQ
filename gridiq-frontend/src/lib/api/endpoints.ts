@@ -1,4 +1,5 @@
 import { z } from "zod";
+import axios from "axios";
 import { api } from "./client";
 import type { ChatMessage, Game, Play, User } from "../../types";
 
@@ -151,35 +152,54 @@ export async function listThreadMessages(threadId: string): Promise<ChatMessage[
     return raw ? z.array(ChatMessageSchema).parse(JSON.parse(raw)) : [];
   }
 
-  const resp = await api.get(`/api/chat/conversations/${threadId}`);
-  const conversation = resp.data as { messages: any[] };
+  try {
+    const resp = await api.get(`/api/chat/conversations/${threadId}`);
+    const conversation = resp.data as { messages: any[] };
 
-  return (conversation.messages || []).map((m) =>
-    ChatMessageSchema.parse({
-      id: m.id,
-      threadId,
-      role: m.role,
-      content: m.content,
-      createdAt: new Date(m.created_at).toISOString(),
-      citations: m.citations,
-    }),
-  );
+    return (conversation.messages || []).map((m) =>
+      ChatMessageSchema.parse({
+        id: m.id,
+        threadId,
+        role: m.role,
+        content: m.content,
+        createdAt: new Date(m.created_at).toISOString(),
+        citations: m.citations,
+      }),
+    );
+  } catch (e) {
+    // Treat missing conversation as an empty thread so stale local ids don't break chat.
+    if (axios.isAxiosError(e) && e.response?.status === 404) return [];
+    throw e;
+  }
 }
 
-export async function sendMessage(threadId: string, content: string): Promise<void> {
+export async function sendMessage(threadId: string | null, content: string): Promise<{ conversationId: string }> {
   if (useMocks()) {
+    const conversationId = threadId ?? `conv_${crypto.randomUUID()}`;
     const msg: ChatMessage = {
       id: crypto.randomUUID(),
-      threadId,
+      threadId: conversationId,
       role: "user",
       content,
       createdAt: new Date().toISOString(),
     };
-    const current = await listThreadMessages(threadId);
-    const next = [...current, msg];
-    sessionStorage.setItem(getThreadKey(threadId), JSON.stringify(next));
-    return;
+    const reply: ChatMessage = {
+      id: crypto.randomUUID(),
+      threadId: conversationId,
+      role: "assistant",
+      content:
+        "Mock response: backend AI is disabled in local mocks. Disable mocks in Settings to use the real API.",
+      createdAt: new Date().toISOString(),
+    };
+    const current = await listThreadMessages(conversationId);
+    const next = [...current, msg, reply];
+    sessionStorage.setItem(getThreadKey(conversationId), JSON.stringify(next));
+    return { conversationId };
   }
 
-  await api.post(`/api/chat/chat`, { conversation_id: threadId, message: content });
+  const resp = await api.post(`/api/chat/chat`, {
+    conversation_id: threadId ?? undefined,
+    message: content,
+  });
+  return { conversationId: resp.data.conversation_id as string };
 }

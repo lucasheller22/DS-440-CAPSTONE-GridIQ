@@ -204,9 +204,9 @@ def chat(
             Conversation.user_id == current_user.id,
         ).first()
         if not conversation:
-            # Create an initial conversation if provided ID doesn't exist yet
+            # Client-supplied IDs can collide across users; issue a fresh server ID.
             conversation = Conversation(
-                id=payload.conversation_id,
+                id=f"conv_{uuid.uuid4().hex}",
                 user_id=current_user.id,
                 title="New Conversation",
             )

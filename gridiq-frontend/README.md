@@ -24,14 +24,12 @@ Open http://localhost:5173
 ## Env
 Create `.env` with:
 ```bash
-VITE_API_BASE_URL=http://localhost:8080
+VITE_API_BASE_URL=http://localhost:8000
 ```
 
-> **Offline/login note**  The frontend is currently hard‑wired to use
-> the mock API layer; you don’t need a backend to register or log in.
-> The `useMocks()` helper in `src/lib/api/endpoints.ts` always returns
-> `true`, so the app works without network access.  (Previously you could
-> toggle this with `VITE_USE_MOCKS` or a localStorage flag.)
+> **Mocks note**  
+> You can run offline by enabling **Settings → Use local mocks** or setting
+> `VITE_USE_MOCKS=true`. In mock mode, chat returns a synthetic assistant reply.
 
 ## Tech decisions
 - React Router for routing

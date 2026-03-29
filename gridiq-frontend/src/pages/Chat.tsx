@@ -30,19 +30,37 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
 }
 
 export default function Chat() {
-  const threadId = useMemo(() => "default", []);
+  const threadIdStorageKey = useMemo(() => {
+    const rawUser = localStorage.getItem("gridiq_user");
+    if (!rawUser) return "gridiq_thread_active";
+    try {
+      const parsed = JSON.parse(rawUser) as { id?: string };
+      return `gridiq_thread_active_${parsed.id ?? "anon"}`;
+    } catch {
+      return "gridiq_thread_active";
+    }
+  }, []);
+  const [threadId, setThreadId] = useState<string | null>(() => localStorage.getItem(threadIdStorageKey));
   const qc = useQueryClient();
 
-  const { data: messages = [], isLoading: isLoadingMessages } = useQuery({
+  const {
+    data: messages = [],
+    isLoading: isLoadingMessages,
+    isError: isLoadError,
+    error: loadError,
+  } = useQuery({
     queryKey: ["thread", threadId],
-    queryFn: () => api.listThreadMessages(threadId),
+    enabled: !!threadId,
+    queryFn: () => api.listThreadMessages(threadId as string),
     refetchOnWindowFocus: false,
   });
 
   const send = useMutation({
     mutationFn: (content: string) => api.sendMessage(threadId, content),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["thread", threadId] });
+    onSuccess: ({ conversationId }) => {
+      setThreadId(conversationId);
+      localStorage.setItem(threadIdStorageKey, conversationId);
+      qc.invalidateQueries({ queryKey: ["thread", conversationId] });
     },
   });
 
@@ -63,7 +81,15 @@ export default function Chat() {
 
       <Card className="space-y-3">
         <div className="h-[52vh] space-y-2 overflow-auto rounded-xl border border-gray-100 bg-white p-3">
-          {isLoadingMessages ? (
+          {isLoadError ? (
+            <div className="text-sm text-red-700">
+              {axios.isAxiosError(loadError)
+                ? (typeof loadError.response?.data?.detail === "string"
+                    ? loadError.response.data.detail
+                    : loadError.message)
+                : (loadError as Error)?.message ?? "Failed to load conversation"}
+            </div>
+          ) : isLoadingMessages ? (
             <div className="text-sm text-gray-500">Loading conversation...</div>
           ) : messages.length === 0 ? (
             <div className="text-sm text-gray-500">

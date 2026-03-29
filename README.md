@@ -32,7 +32,7 @@ GridIQ is an **AI assistant coach for American football**. The goal is to help p
 
 - **Frontend:** React + TypeScript + Vite
 - **Backend:** Python services + REST API (expanding toward an API gateway and data layer)
-- **AI:** OpenAI API (key required for chat features)
+- **AI:** Google Gemini API (key required for live chat features)
 - **Data:** NFL play-by-play dataset(s), normalized for querying/analytics
 
 ---
@@ -83,7 +83,7 @@ The backend implements a comprehensive database schema with the following models
 
 ### Key Features
 
-✅ **AI Football Coach** — GPT-4 powered with football expertise  
+✅ **AI Football Coach** — Gemini-powered with football expertise  
 ✅ **NFL Data Integration** — Real play-by-play data from nflverse (1999-present)  
 ✅ **Conversation Memory** — Store and retrieve full chat history  
 ✅ **Advanced Metrics** — EPA, WPA, air yards, yards-after-catch  
@@ -99,17 +99,17 @@ The backend implements a comprehensive database schema with the following models
 ### Prerequisites
 - **Node.js 18+** (recommended: 20+)
 - **Python 3.10+**
-- An **OpenAI API key** (for AI chat features)
-- **PostgreSQL** (or configured database via `DATABASE_URL`)
+- A **Gemini API key** (for live AI chat features)
+- Optional: **PostgreSQL** (or configured database via `DATABASE_URL`). Local SQLite works by default.
 
 ### Environment Setup
 
 Create a `.env` file in `gridiq-backend/` with:
 ```
 ENV=dev
-DATABASE_URL=postgresql://user:password@localhost:5432/gridiq
+DATABASE_URL=sqlite:///./gridiq.db
 JWT_SECRET=your-secret-key-here
-OPENAI_API_KEY=your-openai-api-key-here
+GEMINI_API_KEY=your-gemini-api-key-here
 ```
 
 ### 1) Clone
@@ -132,12 +132,13 @@ copy .env.example .env  # Windows PowerShell
 ```
 
 Required keys in `.env`:
-- `DATABASE_URL` (e.g. `postgresql+psycopg://postgres:postgres@db:5432/gridiq`)
+- `DATABASE_URL` (default local dev: `sqlite:///./gridiq.db`)
 - `JWT_SECRET` (choose a strong secret)
 - `JWT_ALG=HS256`
 - `ACCESS_TOKEN_MINUTES=30`
-- `OPENAI_API_KEY` (optional; empty string default)
-- `GEMINI_API_KEY` (optional; empty string default)
+- `GEMINI_API_KEY` (optional; empty string default; enables live AI responses)
+- `OPENAI_API_KEY` (unused in current backend implementation)
+- `CORS_ORIGINS` (optional CSV of allowed frontend origins)
 - `ENV=dev`
 
 Install dependencies:
@@ -185,7 +186,7 @@ The frontend will be available at `http://localhost:5173`.
 
 Update the API endpoint in `gridiq-frontend/src/lib/api/client.ts`:
 ```typescript
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = "http://localhost:8000";
 ```
 
 ---
@@ -301,7 +302,7 @@ gridiq-frontend/
 - **SQLAlchemy 2.0** — ORM for database operations
 - **Pydantic** — Data validation and serialization
 - **PostgreSQL** — Relational database
-- **OpenAI GPT-4** — AI coach responses
+- **Google Gemini** — AI coach responses
 - **nflverse** — NFL data source (1999-present)
 
 **Frontend:**
@@ -321,7 +322,8 @@ gridiq-frontend/
 |----------|-------------|---------|
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@localhost:5432/gridiq` |
 | `JWT_SECRET` | Secret key for signing JWTs | `super-secret-key` |
-| `OPENAI_API_KEY` | OpenAI API key for GPT-4 | `sk-...` |
+| `GEMINI_API_KEY` | Gemini API key for live chat | `AIza...` |
+| `CORS_ORIGINS` | Comma-separated allowed frontend origins | `http://localhost:5173,http://127.0.0.1:5173` |
 | `ENV` | Environment mode | `dev` or `prod` |
 
 ---
@@ -344,8 +346,8 @@ gridiq-frontend/
 - Verify database connection: `psql postgresql://user:password@localhost:5432/gridiq`
 
 **AI chat not responding:**
-- Verify `OPENAI_API_KEY` is set correctly in `.env`
-- Check OpenAI account has available API credits
+- Verify `GEMINI_API_KEY` is set correctly in `.env`
+- If key is empty, chat returns a fallback "AI provider not configured" message
 
 **Frontend can't connect to backend:**
 - Ensure backend is running on `http://localhost:8000`

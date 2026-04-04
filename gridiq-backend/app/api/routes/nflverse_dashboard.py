@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 
+from app.nflverse_schedules import get_schedules_dataframe
+
 router = APIRouter()
 
 # One season of play-by-play in memory after first request (narrow columns only).
@@ -118,14 +120,25 @@ def nflverse_schedule(
 ):
     """Regular-season (or postseason) schedule from nflverse."""
     try:
-        import nfl_data_py as nfl
-    except ImportError as e:
-        raise HTTPException(status_code=503, detail=f"nfl_data_py not available: {e}") from e
-
-    try:
-        df = nfl.import_schedules([season])
+        df = get_schedules_dataframe()
+        df = df.loc[df["season"] == season].copy()
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Failed to load nflverse schedule: {e}") from e
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Failed to download nflverse schedules from GitHub. "
+                "Check network / firewall / SSL. "
+                f"Underlying error: {e}"
+            ),
+        ) from e
+
+    if df.empty:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No schedule rows found for season {season}. Try another year.",
+        )
 
     if game_type.upper() != "ALL":
         gt = game_type.upper()

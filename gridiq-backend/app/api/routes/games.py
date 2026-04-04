@@ -134,10 +134,10 @@ def sync_games(
 ):
     """Sync games from nflverse for a season."""
     try:
-        import nfl_data_py as nfl
-        
-        # Fetch games from nflverse
-        games_data = nfl.import_schedules([season])
+        from app.nflverse_schedules import get_schedules_dataframe
+
+        games_data = get_schedules_dataframe()
+        games_data = games_data.loc[games_data["season"] == season]
         
         synced_count = 0
         for _, row in games_data.iterrows():

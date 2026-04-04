@@ -1,7 +1,7 @@
 import { z } from "zod";
 import axios from "axios";
 import { api } from "./client";
-import type { ChatMessage, Game, Play, User } from "../../types";
+import type { ChatMessage, Game, NflversePlay, NflverseScheduleGame, Play, User } from "../../types";
 
 // Mocks: build-time VITE_USE_MOCKS=true, or Settings → "Use local mocks" (localStorage).
 export function mocksEnabled(): boolean {
@@ -150,6 +150,31 @@ export async function listPlays(gameId: string): Promise<Play[]> {
 
   const resp = await api.get(`/api/games/${gameId}/plays`);
   return resp.data;
+}
+
+const NFLVERSE_SCHEDULE_TIMEOUT_MS = 60_000;
+const NFLVERSE_PBP_TIMEOUT_MS = 120_000;
+
+export async function fetchNflverseSchedule(
+  season: number,
+  opts?: { week?: number; gameType?: string },
+): Promise<NflverseScheduleGame[]> {
+  const resp = await api.get("/api/games/nflverse/schedule", {
+    timeout: NFLVERSE_SCHEDULE_TIMEOUT_MS,
+    params: {
+      season,
+      ...(opts?.week != null ? { week: opts.week } : {}),
+      ...(opts?.gameType != null ? { game_type: opts.gameType } : {}),
+    },
+  });
+  return resp.data.games as NflverseScheduleGame[];
+}
+
+export async function fetchNflverseGamePlays(gameId: string): Promise<NflversePlay[]> {
+  const resp = await api.get(`/api/games/nflverse/games/${encodeURIComponent(gameId)}/plays`, {
+    timeout: NFLVERSE_PBP_TIMEOUT_MS,
+  });
+  return resp.data.plays as NflversePlay[];
 }
 
 

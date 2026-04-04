@@ -36,3 +36,34 @@ export type Play = {
   playType: string;
   description: string;
 };
+
+/** nflverse schedule row (camelCase from API). */
+export type NflverseScheduleGame = {
+  gameId: string;
+  season: number;
+  gameType: string;
+  week: number;
+  gameday: string | null;
+  weekday: string | null;
+  gametime: string | null;
+  awayTeam: string;
+  homeTeam: string;
+  awayScore: number | null;
+  homeScore: number | null;
+  stadium: string | null;
+};
+
+/** nflverse play-by-play row (camelCase from API). */
+export type NflversePlay = {
+  id: string;
+  gameId: string;
+  quarter: number | null;
+  down: number | null;
+  yardsToGo: number | null;
+  playType: string | null;
+  description: string | null;
+  offense: string | null;
+  defense: string | null;
+  epa: number | null;
+  yardsGained: number | null;
+};

@@ -67,3 +67,55 @@ export type NflversePlay = {
   epa: number | null;
   yardsGained: number | null;
 };
+
+export type NflversePlayerStatTriple = {
+  name: string;
+  yards: number;
+  carries?: number;
+  receptions?: number;
+  touchdowns?: number;
+  interceptions?: number;
+};
+
+export type NflverseFgTotals = {
+  made: number;
+  missed: number;
+  attempted: number;
+};
+
+export type NflverseFumbleTotals = {
+  playsWithFumble: number;
+  lost: number;
+};
+
+export type NflverseQuarterScore = {
+  quarter: number;
+  homePoints: number;
+  awayPoints: number;
+  homeCumulative: number;
+  awayCumulative: number;
+};
+
+export type NflverseScoringHighlight = {
+  quarter: number | null;
+  playType: string | null;
+  team: string | null;
+  player: string | null;
+  description: string | null;
+};
+
+/** Aggregated game summary from `/nflverse/games/{id}/summary`. */
+export type NflverseGameSummary = {
+  gameId: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  quarterlyScores: NflverseQuarterScore[];
+  highlights: NflverseScoringHighlight[];
+  topRusherByTeam: { home: NflversePlayerStatTriple | null; away: NflversePlayerStatTriple | null };
+  topReceiverByTeam: { home: NflversePlayerStatTriple | null; away: NflversePlayerStatTriple | null };
+  topPasserByTeam: { home: NflversePlayerStatTriple | null; away: NflversePlayerStatTriple | null };
+  fieldGoalsByTeam: { home: NflverseFgTotals; away: NflverseFgTotals };
+  fumblesByTeam: { home: NflverseFumbleTotals; away: NflverseFumbleTotals };
+};

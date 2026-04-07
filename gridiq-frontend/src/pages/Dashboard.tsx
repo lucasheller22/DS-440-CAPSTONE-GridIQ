@@ -2,8 +2,61 @@ import { Card } from "../ui/primitives/Card";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import * as api from "../lib/api/endpoints";
+import type { NflverseGameSummary } from "../types";
+
+function fmtScore(v: number | null | undefined, fallback: number | null | undefined): string {
+  if (v != null && !Number.isNaN(Number(v))) return String(Number(v));
+  if (fallback != null && !Number.isNaN(Number(fallback))) return String(Number(fallback));
+  return "—";
+}
 
 const SEASON_CHOICES = [2024, 2023, 2022, 2021, 2020, 2019];
+
+function StatColumn({
+  label,
+  side,
+  s,
+}: {
+  label: string;
+  side: "home" | "away";
+  s: NflverseGameSummary;
+}) {
+  const rush = s.topRusherByTeam[side];
+  const rec = s.topReceiverByTeam[side];
+  const pass = s.topPasserByTeam[side];
+  const fg = s.fieldGoalsByTeam[side];
+  const fum = s.fumblesByTeam[side];
+
+  const line = (title: string, body: string) => (
+    <div className="mt-2 text-xs">
+      <div className="font-medium text-gray-600">{title}</div>
+      <div className="text-gray-900">{body}</div>
+    </div>
+  );
+
+  const rusherTxt = rush
+    ? `${rush.name} — ${rush.yards} yd, ${rush.carries ?? 0} att`
+    : "—";
+  const recTxt = rec
+    ? `${rec.name} — ${rec.yards} yd, ${rec.receptions ?? 0} rec`
+    : "—";
+  const passTxt = pass
+    ? `${pass.name} — ${pass.yards} yd, ${pass.touchdowns ?? 0} TD, ${pass.interceptions ?? 0} INT`
+    : "—";
+  const fgTxt = `${fg.made}/${fg.attempted} made (${fg.missed} missed/blocked)`;
+  const fumTxt = `${fum.playsWithFumble} fumble plays, ${fum.lost} lost`;
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+      <div className="border-b border-gray-100 pb-2 text-xs font-semibold text-gray-800">{label}</div>
+      {line("Top rusher", rusherTxt)}
+      {line("Top WR (yards / catches)", recTxt)}
+      {line("Passing (yards · TD · INT)", passTxt)}
+      {line("Field goals", fgTxt)}
+      {line("Fumbles", fumTxt)}
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const [season, setSeason] = useState(2024);
@@ -35,6 +88,17 @@ export default function Dashboard() {
     enabled: !!selectedGameId,
   });
 
+  const {
+    data: gameSummary,
+    isLoading: loadingSummary,
+    isError: summaryError,
+    error: summaryErr,
+  } = useQuery({
+    queryKey: ["nflverse-summary", selectedGameId],
+    queryFn: () => api.fetchNflverseGameSummary(selectedGameId as string),
+    enabled: !!selectedGameId,
+  });
+
   const gamesByWeek = useMemo(() => {
     const map = new Map<number, typeof scheduleGames>();
     for (const g of scheduleGames) {
@@ -62,6 +126,14 @@ export default function Dashboard() {
     () => scheduleGames.find((g) => g.gameId === selectedGameId) ?? null,
     [scheduleGames, selectedGameId],
   );
+
+  const summaryScores = useMemo(() => {
+    if (!gameSummary || !selectedGame) return null;
+    return {
+      away: fmtScore(gameSummary.awayScore, selectedGame.awayScore),
+      home: fmtScore(gameSummary.homeScore, selectedGame.homeScore),
+    };
+  }, [gameSummary, selectedGame]);
 
   return (
     <div className="space-y-4">
@@ -171,6 +243,107 @@ export default function Dashboard() {
           )}
         </div>
       </Card>
+
+      {selectedGameId && selectedGame && (
+        <Card className="space-y-4">
+          <div>
+            <div className="text-sm font-semibold">Game insight</div>
+            <p className="mt-1 text-xs text-gray-500">
+              Home team is listed on the right. Scores and quarterly points come from nflverse play-by-play totals.
+            </p>
+          </div>
+
+          {loadingSummary ? (
+            <div className="text-xs text-gray-500">Loading box score and player stats…</div>
+          ) : summaryError ? (
+            <div className="text-xs text-red-600">
+              {summaryErr instanceof Error ? summaryErr.message : "Could not load game summary."}
+            </div>
+          ) : gameSummary && summaryScores ? (
+            <>
+              <div className="rounded-xl border border-gray-200 bg-gray-50/80 px-4 py-4">
+                <div className="text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                  Scoreboard
+                </div>
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-3 text-center sm:gap-8">
+                  <div>
+                    <div className="text-xs text-gray-500">Away</div>
+                    <div className="text-lg font-semibold">{gameSummary.awayTeam}</div>
+                    <div className="text-3xl font-bold tabular-nums">{summaryScores.away}</div>
+                  </div>
+                  <div className="text-2xl font-light text-gray-400">@</div>
+                  <div>
+                    <div className="text-xs font-medium text-blue-700">Home</div>
+                    <div className="text-lg font-semibold">{gameSummary.homeTeam}</div>
+                    <div className="text-3xl font-bold tabular-nums">{summaryScores.home}</div>
+                  </div>
+                </div>
+              </div>
+
+              {gameSummary.quarterlyScores.length > 0 ? (
+                <div>
+                  <div className="mb-2 text-xs font-semibold text-gray-700">Scoring by quarter</div>
+                  <div className="overflow-x-auto rounded-lg border border-gray-200">
+                    <table className="w-full min-w-[280px] text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-200 bg-gray-50">
+                          <th className="px-2 py-2 font-medium">Q</th>
+                          <th className="px-2 py-2 font-medium">{gameSummary.awayTeam}</th>
+                          <th className="px-2 py-2 font-medium">{gameSummary.homeTeam} (home)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {gameSummary.quarterlyScores.map((q) => (
+                          <tr key={q.quarter} className="border-b border-gray-100">
+                            <td className="px-2 py-1.5 font-medium">{q.quarter}</td>
+                            <td className="px-2 py-1.5 tabular-nums">{q.awayPoints}</td>
+                            <td className="px-2 py-1.5 tabular-nums">{q.homePoints}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <StatColumn
+                  label={`${gameSummary.awayTeam} (away)`}
+                  side="away"
+                  s={gameSummary}
+                />
+                <StatColumn label={`${gameSummary.homeTeam} (home)`} side="home" s={gameSummary} />
+              </div>
+
+              {gameSummary.highlights.length > 0 ? (
+                <div>
+                  <div className="mb-2 text-xs font-semibold text-gray-700">Scoring highlights</div>
+                  <ul className="space-y-2">
+                    {gameSummary.highlights.map((h, i) => (
+                      <li
+                        key={i}
+                        className="rounded-lg border border-amber-100 bg-amber-50/60 px-3 py-2 text-xs text-gray-800"
+                      >
+                        <span className="font-medium">
+                          Q{h.quarter ?? "—"}
+                          {h.team ? ` · ${h.team}` : ""}
+                          {h.playType ? ` · ${h.playType}` : ""}
+                        </span>
+                        {h.player ? (
+                          <span className="ml-1 font-semibold text-amber-950">{h.player}</span>
+                        ) : null}
+                        {h.description ? (
+                          <div className="mt-1 text-gray-600 line-clamp-3">{h.description}</div>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </Card>
+      )}
 
       {selectedGameId && (
         <Card>

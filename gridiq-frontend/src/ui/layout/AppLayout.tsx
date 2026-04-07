@@ -23,14 +23,14 @@ export function AppLayout() {
   }, [location.pathname, navigate]);
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
-      <div className="mx-auto grid max-w-7xl grid-cols-12 gap-4 p-4">
+    <div className="min-h-screen w-full max-w-none bg-gray-50 text-gray-900">
+      <div className="grid w-full max-w-none grid-cols-12 gap-3 px-2 py-3 sm:gap-4 sm:px-4">
         <aside className="col-span-12 md:col-span-3 lg:col-span-2">
           <Sidebar />
         </aside>
-        <main className="col-span-12 md:col-span-9 lg:col-span-10">
+        <main className="col-span-12 min-w-0 md:col-span-9 lg:col-span-10">
           <Topbar />
-          <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
+          <div className="mt-4 w-full max-w-none rounded-2xl bg-white p-3 shadow-sm sm:p-4">
             <Outlet />
           </div>
         </main>

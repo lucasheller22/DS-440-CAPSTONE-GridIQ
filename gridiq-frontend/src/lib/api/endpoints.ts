@@ -1,7 +1,15 @@
 import { z } from "zod";
 import axios from "axios";
 import { api } from "./client";
-import type { ChatMessage, Game, NflversePlay, NflverseScheduleGame, Play, User } from "../../types";
+import type {
+  ChatMessage,
+  Game,
+  NflverseGameSummary,
+  NflversePlay,
+  NflverseScheduleGame,
+  Play,
+  User,
+} from "../../types";
 
 // Mocks: build-time VITE_USE_MOCKS=true, or Settings → "Use local mocks" (localStorage).
 export function mocksEnabled(): boolean {
@@ -175,6 +183,33 @@ export async function fetchNflverseGamePlays(gameId: string): Promise<NflversePl
     timeout: NFLVERSE_PBP_TIMEOUT_MS,
   });
   return resp.data.plays as NflversePlay[];
+}
+
+export async function fetchNflverseGameSummary(gameId: string): Promise<NflverseGameSummary> {
+  const resp = await api.get(`/api/games/nflverse/games/${encodeURIComponent(gameId)}/summary`, {
+    timeout: NFLVERSE_PBP_TIMEOUT_MS,
+  });
+  const d = resp.data;
+  return {
+    gameId: d.gameId as string,
+    homeTeam: d.homeTeam as string,
+    awayTeam: d.awayTeam as string,
+    homeScore: d.homeScore ?? null,
+    awayScore: d.awayScore ?? null,
+    quarterlyScores: d.quarterlyScores ?? [],
+    highlights: d.highlights ?? [],
+    topRusherByTeam: d.topRusherByTeam ?? { home: null, away: null },
+    topReceiverByTeam: d.topReceiverByTeam ?? { home: null, away: null },
+    topPasserByTeam: d.topPasserByTeam ?? { home: null, away: null },
+    fieldGoalsByTeam: d.fieldGoalsByTeam ?? {
+      home: { made: 0, missed: 0, attempted: 0 },
+      away: { made: 0, missed: 0, attempted: 0 },
+    },
+    fumblesByTeam: d.fumblesByTeam ?? {
+      home: { playsWithFumble: 0, lost: 0 },
+      away: { playsWithFumble: 0, lost: 0 },
+    },
+  };
 }
 
 

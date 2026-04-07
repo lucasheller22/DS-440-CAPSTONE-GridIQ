@@ -6,12 +6,36 @@ import { Input } from "../ui/primitives/Input";
 import * as api from "../lib/api/endpoints";
 import type { ChatMessage } from "../types";
 import axios from "axios";
+import { FootballMascot } from "../ui/FootballMascot";
 
 function MessageBubble({ msg }: { msg: ChatMessage }) {
   const isUser = msg.role === "user";
+  if (isUser) {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[min(80%,52rem)] rounded-2xl bg-gray-900 p-3 text-sm text-white">
+          <div className="whitespace-pre-wrap">{msg.content}</div>
+          {msg.citations?.length ? (
+            <div className="mt-2 space-y-1 text-xs opacity-90">
+              <div className="font-medium">Citations</div>
+              {msg.citations.map((c, i) => (
+                <div key={i} className="rounded-xl bg-white/10 px-2 py-1">
+                  {c.title}
+                  {c.snippet ? <div className="mt-0.5 opacity-80">{c.snippet}</div> : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className={isUser ? "flex justify-end" : "flex justify-start"}>
-      <div className={isUser ? "max-w-[80%] rounded-2xl bg-gray-900 p-3 text-sm text-white" : "max-w-[80%] rounded-2xl bg-gray-100 p-3 text-sm"}>
+    <div className="flex justify-start gap-2">
+      <div className="shrink-0 pt-1">
+        <FootballMascot className="drop-shadow-sm" />
+      </div>
+      <div className="max-w-[min(80%,52rem)] rounded-2xl bg-gray-100 p-3 text-sm">
         <div className="whitespace-pre-wrap">{msg.content}</div>
         {msg.citations?.length ? (
           <div className="mt-2 space-y-1 text-xs opacity-90">
@@ -109,7 +133,7 @@ export default function Chat() {
           <strong>gridiq-backend/gridiq.db</strong> (and any stray <strong>gridiq.db</strong> in the monorepo root if you
           ever started the server from the wrong folder), then restart and sign in again.
         </p>
-        <div className="h-[52vh] space-y-2 overflow-auto rounded-xl border border-gray-100 bg-white p-3">
+        <div className="h-[min(70vh,calc(100vh-14rem))] space-y-2 overflow-auto rounded-xl border border-gray-100 bg-white p-3">
           {isLoadError ? (
             <div className="text-sm text-red-700">
               {axios.isAxiosError(loadError)

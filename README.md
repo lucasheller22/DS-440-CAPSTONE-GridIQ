@@ -1,364 +1,216 @@
 # GridIQ (DS 440 Capstone)
 
-GridIQ is an **AI assistant coach for American football**. The goal is to help players, coaches, and fans **learn concepts, evaluate situations, and consult on game plans** through a conversational interface, backed by football data and a dashboard for visualizing plays/schemes.
+GridIQ is an **AI assistant coach for American football**: chat with an AI coach, explore NFL dashboards, and draw plays in an interactive **Playbook** (routes, coverages, line of scrimmage).
 
 ---
 
-## What this repo contains
+## Quick start — read this first
 
-- **`gridiq-frontend/`** — Front-end web app (React + TypeScript, Vite-based project structure).
-- **`gridiq-backend/`** — Back-end services/API (Python-based components).
-- **`.vite/`** — Vite build artifacts / cached deps (generated).
-- **`.gitignore`** — Git ignore rules.
+Pick **one** path below. Use **two terminal windows** for the full app.
 
-> Repo is early-stage: expect rapid changes as the capstone progresses.
+### You need installed
 
----
-
-## Key capabilities (target)
-
-- **Chat-first “assistant coach” experience**
-  - Ask questions about football concepts, schemes, and situational decisions
-  - Conversational flow with structured responses (and eventually citations/links to supporting data)
-- **Football dashboard**
-  - Team/game views
-  - Filters & charts to explore plays and outcomes
-- **Data foundation**
-  - Play-by-play data (historically using nflverse / NFL pbp back to 1999)
+| Tool | Used for | Get it |
+|------|----------|--------|
+| **Node.js** 18+ (20+ recommended) | Website | [nodejs.org](https://nodejs.org/) |
+| **Python** 3.10+ | API (skip if you only run the front-end) | [python.org](https://www.python.org/downloads/) |
 
 ---
 
-## Tech stack (current + intended)
+### Option A — Front-end only (fastest)
 
-- **Frontend:** React + TypeScript + Vite
-- **Backend:** Python services + REST API (expanding toward an API gateway and data layer)
-- **AI:** Google Gemini (API key for live chat)
-- **Data:** NFL play-by-play dataset(s), normalized for querying/analytics
+Good for **Playbook** and browsing the UI. **No** Python, **no** database, **no** login/API.
 
----
+1. Clone the repo and open a terminal at the **root** of the project (the folder that contains `gridiq-frontend`).
 
-## Backend API Architecture
+2. Copy and paste:
 
-### Database Schema (Step 2.2)
-
-The backend implements a comprehensive database schema with the following models:
-
-**Core Models:**
-- **Users** — User accounts with authentication
-- **Conversations** — Chat conversation threads with timestamps
-- **Messages** — Individual messages (user/assistant) with AI metadata
-- **Games** — NFL game data (teams, scores, dates, stadiums)
-- **Plays** — Play-by-play records with advanced metrics (EPA, WPA, air yards, etc.)
-- **Cache** — Performance optimization layer with TTL expiration
-
-### REST API Endpoints (Step 2.3)
-
-**Authentication:**
-- `POST /api/auth/register` — Register new user
-- `POST /api/auth/login` — Login and get JWT token
-
-**Chat & Conversations:**
-- `POST /api/chat/conversations` — Create new conversation
-- `GET /api/chat/conversations` — List user's conversations
-- `GET /api/chat/conversations/{id}` — Get conversation with message history
-- `PUT /api/chat/conversations/{id}` — Update conversation title
-- `DELETE /api/chat/conversations/{id}` — Delete conversation
-- `POST /api/chat/chat` — Send message & get AI coach response (with NFL data context)
-
-**Games & Plays:**
-- `GET /api/games/games` — List games (with season/week/team filters)
-- `GET /api/games/games/{id}` — Get game details with all plays
-- `GET /api/games/plays` — List plays (with filtering)
-- `GET /api/games/plays/{id}` — Get specific play details
-- `GET /api/games/plays/team/{team}/stats` — Get team offensive/defensive statistics
-- `POST /api/games/sync/games` — Sync NFL games from nflverse
-- `POST /api/games/sync/plays` — Sync play-by-play data from nflverse
-
-**Cache Management:**
-- `POST /api/cache/cache` — Set cache entry with TTL
-- `GET /api/cache/{key}` — Get cached value
-- `DELETE /api/cache/{key}` — Delete cache entry
-- `DELETE /api/cache` — Clear all cache
-- `POST /api/cache/cleanup` — Remove expired entries
-
-### Key Features
-
-✅ **AI Football Coach** — Gemini with football-focused prompting  
-✅ **NFL Data Integration** — Real play-by-play data from nflverse (1999-present)  
-✅ **Conversation Memory** — Store and retrieve full chat history  
-✅ **Advanced Metrics** — EPA, WPA, air yards, yards-after-catch  
-✅ **Team Analytics** — Aggregate offensive/defensive performance data  
-✅ **Performance Caching** — TTL-based caching for frequently accessed data  
-✅ **User Isolation** — Conversations scoped to authenticated users  
-✅ **OpenAPI Documentation** — Auto-generated API docs at `/docs`
-
----
-
-## Getting started (local dev)
-
-### Prerequisites
-- **Node.js 18+** (recommended: 20+)
-- **Python 3.10+**
-- A **Gemini** API key (for live AI chat)
-- Optional: **PostgreSQL** (or configured database via `DATABASE_URL`). Local SQLite works by default.
-
-### Environment Setup
-
-Create a `.env` file in `gridiq-backend/` with:
-```
-ENV=dev
-DATABASE_URL=sqlite:///./gridiq.db
-JWT_SECRET=your-secret-key-here
-GEMINI_API_KEY=your-gemini-api-key-here
-```
-
-### 1) Clone
 ```bash
-git clone https://github.com/lucasheller22/DS-440-CAPSTONE-GridIQ.git
-cd DS-440-CAPSTONE-GridIQ
+cd gridiq-frontend
+npm install
+npm run dev
 ```
 
-### 2) Backend Setup
+3. In your browser, open **http://localhost:5173**  
+4. In the sidebar, open **Playbook**.
 
-Navigate to the backend directory:
+---
+
+### Option B — Full stack (login, chat, dashboard, API)
+
+Use **two terminals**. Leave both running.
+
+#### Terminal 1 — Backend (API)
+
 ```bash
 cd gridiq-backend
 ```
 
-Create `.env` from the example and edit values:
-```bash
-copy .env.example .env  # Windows PowerShell
-# or cp .env.example .env # macOS/Linux
-```
+**First time only:**
 
-Required keys in `.env`:
-- `DATABASE_URL` (default local dev: `sqlite:///./gridiq.db`)
-- `JWT_SECRET` (choose a strong secret)
-- `JWT_ALG=HS256`
-- `ACCESS_TOKEN_MINUTES=30`
-- `GEMINI_API_KEY` (required for live chat; Google Gemini)
-- `CORS_ORIGINS` (optional CSV of allowed frontend origins)
-- `ENV=dev`
+| Windows (PowerShell or CMD) | Mac / Linux |
+|----------------------------|-------------|
+| `copy .env.example .env` | `cp .env.example .env` |
 
-Install dependencies:
+Then edit **`gridiq-backend/.env`**:
+
+- Set **`JWT_SECRET`** to any long random string (required for login).
+- Set **`GEMINI_API_KEY`** if you want **live chat** (from [Google AI Studio](https://aistudio.google.com/)). If you skip it, other features still work; chat may show a setup message.
+
+**First time only — install and database:**
+
 ```bash
 pip install -r requirements.txt
-```
-
-Run migrations (requires DB available):
-```bash
 python -m alembic upgrade head
 ```
 
-If you don't have a DB yet, one quick way is Docker Compose:
-```bash
-docker compose up -d
-```
-
-Run the backend server (you must be inside `gridiq-backend`, not the monorepo root):
+**Start the API** (run this **every time** you work on the backend):
 
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-If you see **`ModuleNotFoundError: No module named 'app'`**, you started uvicorn from the wrong directory. Either `cd gridiq-backend` first, or from the repo root run **`.\run-backend.ps1`** (PowerShell) or **`run-backend.bat`** (cmd).
+| If you see… | Fix |
+|-------------|-----|
+| `No module named 'app'` | You are not inside **`gridiq-backend`**. `cd` there, then run `uvicorn` again. |
 
-The API will be available at `http://localhost:8000` with auto-generated docs at `/docs`.
+- API: **http://localhost:8000**  
+- Interactive docs: **http://localhost:8000/docs**
 
-### 3) Frontend Setup
+#### Terminal 2 — Front-end
 
-Navigate to the frontend directory:
 ```bash
-cd ../gridiq-frontend
-```
-
-Install dependencies:
-```bash
+cd gridiq-frontend
 npm install
-```
-
-Start the development server:
-```bash
 npm run dev
 ```
 
-The frontend will be available at `http://localhost:5173`.
+- App: **http://localhost:5173**
 
-### 4) Connect Frontend to Backend
+By default the UI calls **http://localhost:8000**. To change that, use **Settings** in the app or set `VITE_API_BASE_URL` for builds.
 
-Update the API endpoint in `gridiq-frontend/src/lib/api/client.ts`:
-```typescript
-const API_BASE = "http://localhost:8000";
+---
+
+### After it’s running
+
+1. Open **http://localhost:5173**  
+2. **Register** / **Log in** (full stack only)  
+3. Explore **Dashboard**, **Chat**, and **Playbook**
+
+---
+
+## What’s in this repo
+
+| Folder | What it is |
+|--------|------------|
+| **`gridiq-frontend/`** | React + TypeScript + Vite — UI, Playbook, dashboard, chat client |
+| **`gridiq-backend/`** | Python **FastAPI** — auth, chat (Gemini), NFL/nflverse data, cache |
+
+---
+
+## Features (current)
+
+- **Playbook** — 120-yard field, line of scrimmage & first-down markers, offensive routes (pass / run / block), defensive coverage (zone / man / blitz toward QB), draggable players and bendable routes  
+- **Dashboard** — NFL schedule / play views using nflverse-backed endpoints  
+- **Chat** — AI coach (needs `GEMINI_API_KEY`)  
+- **Auth** — Register, login, JWT  
+
+---
+
+## Tech stack
+
+- **Front-end:** React, TypeScript, Vite, Tailwind  
+- **Back-end:** FastAPI, SQLAlchemy, Alembic, SQLite by default (Postgres optional)  
+- **AI:** Google Gemini  
+- **Data:** nflverse / NFL play-by-play  
+
+---
+
+## Backend API (summary)
+
+**Auth:** `POST /api/auth/register`, `POST /api/auth/login`  
+
+**Chat:** conversations CRUD, `POST /api/chat/chat`  
+
+**Games / data:** `GET /api/games/...`, nflverse dashboard routes under `/api/games/nflverse/...`, sync endpoints for games/plays  
+
+**Cache:** `/api/cache/...`  
+
+Full detail: **http://localhost:8000/docs** when the API is running.
+
+### Database schema (high level)
+
+Users, conversations, messages, games, plays, cache — see `gridiq-backend/app/models/`.
+
+---
+
+## Optional: Postgres via Docker
+
+From `gridiq-backend`:
+
+```bash
+docker compose up -d
+```
+
+Point `DATABASE_URL` in `.env` at that database if you use it instead of SQLite.
+
+---
+
+## Usage tips
+
+### Register and log in (full stack)
+
+1. Go to **http://localhost:5173**  
+2. **Register**, then **Log in**
+
+### Sync NFL data (optional)
+
+Authenticated `POST` requests, e.g.:
+
+```bash
+curl -X POST "http://localhost:8000/api/games/sync/games?season=2023" -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 ---
 
-## Usage
-
-### Registering & Logging In
-
-1. Navigate to the frontend at `http://localhost:5173`
-2. Click "Register" to create a new account
-3. Login with your credentials
-4. You'll receive a JWT token for authenticated requests
-
-### Using the Chat Feature
-
-1. After login, navigate to the Chat page
-2. Send a message to the AI football coach
-3. The AI will analyze real NFL data and provide insights
-4. View your conversation history in the sidebar
-
-### Syncing NFL Data
-
-To populate the database with NFL games and plays:
-
-**Sync games for 2023 season:**
-```bash
-curl -X POST "http://localhost:8000/api/games/sync/games?season=2023" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
-```
-
-**Sync plays for 2023 season:**
-```bash
-curl -X POST "http://localhost:8000/api/games/sync/plays?season=2023" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
-```
-
-### API Examples
-
-**Create a conversation:**
-```bash
-curl -X POST "http://localhost:8000/api/chat/conversations" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"title": "2023 Strategy"}'
-```
-
-**Send a chat message:**
-```bash
-curl -X POST "http://localhost:8000/api/chat/chat" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"conversation_id": "conv_xxx", "message": "How should I defend against the pass?"}'
-```
-
-**Get team statistics:**
-```bash
-curl -X GET "http://localhost:8000/api/games/plays/team/KC/stats?season=2023" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
-```
-
----
-
-## Project Structure
+## Project structure (short)
 
 ```
 gridiq-backend/
-├── app/
-│   ├── main.py              # FastAPI app initialization
-│   ├── api/
-│   │   ├── routes/          # API endpoints
-│   │   │   ├── auth.py      # Authentication
-│   │   │   ├── chat.py      # Chat & conversations
-│   │   │   ├── games.py     # NFL data & plays
-│   │   │   ├── cache.py     # Cache operations
-│   │   │   └── users.py     # User management
-│   │   └── deps.py          # Dependencies
-│   ├── models/              # Database models
-│   │   ├── user.py
-│   │   ├── conversation.py
-│   │   ├── game.py
-│   │   └── cache.py
-│   ├── schemas/             # Pydantic schemas for validation
-│   │   ├── auth.py
-│   │   ├── user.py
-│   │   ├── conversation.py
-│   │   ├── game.py
-│   │   └── cache.py
-│   └── core/
-│       ├── config.py        # Settings & configuration
-│       ├── db.py            # Database connection
-│       └── security.py      # Password hashing, JWT
-├── requirements.txt         # Python dependencies
-├── Dockerfile              # Docker configuration
-├── docker-compose.yml      # Docker Compose setup
-└── .env                    # Environment variables
+  app/main.py          # FastAPI app
+  app/api/routes/      # auth, chat, games, cache, users, nflverse dashboard
+  app/models/, schemas/, core/
 
 gridiq-frontend/
-├── src/
-│   ├── pages/              # Page components
-│   ├── components/         # Reusable UI components
-│   ├── stores/             # State management
-│   ├── lib/
-│   │   └── api/            # API client & endpoints
-│   └── App.tsx             # Main app component
-├── package.json
-└── vite.config.ts
+  src/pages/           # Login, Dashboard, Playbook, Chat, …
+  src/lib/api/         # Axios client (default base: localhost:8000)
 ```
 
-## Technologies
+---
 
-**Backend:**
-- **FastAPI** — Modern Python web framework
-- **SQLAlchemy 2.0** — ORM for database operations
-- **Pydantic** — Data validation and serialization
-- **PostgreSQL** — Relational database
-- **Google Gemini** — AI coach responses
-- **nflverse** — NFL data source (1999-present)
+## Environment variables (`gridiq-backend/.env`)
 
-**Frontend:**
-- **React 18+** — UI library
-- **TypeScript** — Type safety
-- **Vite** — Build tool & dev server
-- **Tailwind CSS** — Styling
-- **React Router** — Navigation
+| Variable | Purpose |
+|----------|---------|
+| `DATABASE_URL` | Default dev: `sqlite:///./gridiq.db` |
+| `JWT_SECRET` | Required for auth |
+| `GEMINI_API_KEY` | Required for full AI chat behavior |
+| `CORS_ORIGINS` | Optional; defaults allow `localhost:5173` |
+| `ENV` | e.g. `dev` |
 
 ---
 
-## Environment Variables
+## Troubleshooting
 
-### Backend (`gridiq-backend/.env`)
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@localhost:5432/gridiq` |
-| `JWT_SECRET` | Secret key for signing JWTs | `super-secret-key` |
-| `GEMINI_API_KEY` | Gemini API key | `AIza...` |
-| `GEMINI_MODEL` | Gemini model id | `gemini-2.5-flash-lite` |
-| `CORS_ORIGINS` | Comma-separated allowed frontend origins | `http://localhost:5173,http://127.0.0.1:5173` |
-| `ENV` | Environment mode | `dev` or `prod` |
-
----
-
-## Development Notes
-
-- The backend automatically creates database tables on startup
-- All API endpoints require JWT authentication (except `/api/auth/register` and `/api/auth/login`)
-- Chat messages are stored with full history for context
-- NFL data is cached to optimize performance
-- Each user's conversations are isolated and secure
-
----
-
-## Support & Troubleshooting
-
-**Backend won't start:**
-- Ensure PostgreSQL is running
-- Check `.env` file is configured correctly
-- Verify database connection: `psql postgresql://user:password@localhost:5432/gridiq`
-
-**AI chat not responding:**
-- Set **`GEMINI_API_KEY`** in `gridiq-backend/.env`, then restart uvicorn
-- If it is empty, chat returns setup instructions instead of football answers
-
-**Frontend can't connect to backend:**
-- Ensure backend is running on `http://localhost:8000`
-- Check browser console for CORS errors
-- Verify API endpoint in frontend config
+| Problem | What to try |
+|---------|-------------|
+| **`No module named 'app'`** | Run `uvicorn` from **`gridiq-backend`**, not the monorepo root. |
+| **Chat not answering** | Set `GEMINI_API_KEY` in `.env`, restart `uvicorn`. |
+| **Front-end can’t reach API** | Start the backend; check **http://localhost:8000/docs**; fix **Settings** API URL or CORS if you changed ports. |
+| **`pip` / `python` not found** | Install Python 3.10+ and use `py -m pip` on Windows if needed. |
 
 ---
 
 ## License
 
-See [LICENSE](LICENSE) file for details.
+See [LICENSE](LICENSE).

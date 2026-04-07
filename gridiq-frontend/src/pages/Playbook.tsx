@@ -18,9 +18,13 @@ type FieldPlayer = {
   routeWaypoints?: [number, number][];
   /** Defense only */
   coverage?: DefensiveCoverageKind;
+  /** Zone drop — center of blue zone (yards), independent of defender position */
+  defZoneCx?: number;
+  defZoneCy?: number;
   defZoneRx?: number;
   defZoneRy?: number;
-  manRadiusYards?: number;
+  /** Man — defender covers this offensive player (green line); any offensive player including QB */
+  manCoverPlayerId?: string;
 };
 
 const PLAYING_FIELD_YARDS = 100;
@@ -41,8 +45,11 @@ const BLOCK_GREY_STROKE = "#374151";
 
 const DEF_ZONE_FILL = "#2563eb";
 const DEF_ZONE_STROKE = "#1d4ed8";
-const MAN_YELLOW = "#facc15";
-const MAN_YELLOW_STROKE = "#a16207";
+const ZONE_CONNECTOR = "#2563eb";
+const MAN_LINE_GREEN = "#22c55e";
+const MAN_LINE_GREEN_STROKE = "#15803d";
+const BLITZ_PURPLE = "#a855f7";
+const BLITZ_PURPLE_STROKE = "#6b21a8";
 
 const LOS_COLOR = "#000000";
 const FIRST_DOWN_COLOR = "#f97316";
@@ -50,8 +57,6 @@ const FIRST_DOWN_COLOR = "#f97316";
 const MIN_ZONE_R = 1.5;
 const MAX_ZONE_RX = 22;
 const MAX_ZONE_RY = 16;
-const MIN_MAN_RADIUS_YARDS = 2;
-const MAX_MAN_RADIUS_YARDS = 14;
 
 const OFFENSE_COUNT = 6;
 const DEFENSE_COUNT = 6;
@@ -96,11 +101,11 @@ function polylinePointsSvg(
   xSvg: (x: number) => number,
   ySvg: (y: number) => number,
   shortenLastPx: number,
-): { pointsAttr: string } {
+): { pointsAttr: string; endSvg: [number, number]; prevSvg: [number, number] } {
   const pts: [number, number][] = [[player.x, player.y], ...waypoints];
   const svgPts = pts.map(([px, py]) => [xSvg(px), ySvg(py)] as [number, number]);
   if (svgPts.length < 2) {
-    return { pointsAttr: "" };
+    return { pointsAttr: "", endSvg: [0, 0], prevSvg: [0, 0] };
   }
   const n = svgPts.length;
   const [lx1, ly1] = svgPts[n - 2]!;
@@ -108,7 +113,17 @@ function polylinePointsSvg(
   const [ex, ey] = shortenSegmentEnd(lx1, ly1, lx2, ly2, shortenLastPx);
   const allButLast = svgPts.slice(0, -1).map(([a, b]) => `${a},${b}`);
   const pointsAttr = [...allButLast, `${ex},${ey}`].join(" ");
-  return { pointsAttr };
+  return { pointsAttr, endSvg: [ex, ey], prevSvg: [lx1, ly1] };
+}
+
+/** Perpendicular cap at route end (blocking): bar across the stem direction. */
+function blockCapCoords(prevSvg: [number, number], endSvg: [number, number], capLenPx: number): { x1: number; y1: number; x2: number; y2: number } {
+  const dx = endSvg[0] - prevSvg[0];
+  const dy = endSvg[1] - prevSvg[1];
+  const len = Math.hypot(dx, dy) || 1;
+  const px = (-dy / len) * capLenPx;
+  const py = (dx / len) * capLenPx;
+  return { x1: endSvg[0] + px, y1: endSvg[1] + py, x2: endSvg[0] - px, y2: endSvg[1] - py };
 }
 
 type MarkerDrag = "los" | "fd" | null;
@@ -132,7 +147,7 @@ type SkillRouteDrag =
 type DefResizeDrag =
   | { playerId: string; kind: "zone-rx"; cx: number; cy: number }
   | { playerId: string; kind: "zone-ry"; cx: number; cy: number }
-  | { playerId: string; kind: "man-r"; cx: number; cy: number }
+  | { playerId: string; kind: "zone-move"; startX: number; startY: number; initialCx: number; initialCy: number }
   | null;
 
 type PlayerDragState = {
@@ -166,7 +181,7 @@ function FootballField({
   ) => void;
   onDefCoveragePatch: (
     playerId: string,
-    patch: Partial<Pick<FieldPlayer, "defZoneRx" | "defZoneRy" | "manRadiusYards">>,
+    patch: Partial<Pick<FieldPlayer, "defZoneCx" | "defZoneCy" | "defZoneRx" | "defZoneRy" | "manCoverPlayerId">>,
   ) => void;
   onMarkerX: (which: "los" | "fd", x: number) => void;
 }) {
@@ -174,7 +189,6 @@ function FootballField({
   const reactId = useId().replace(/:/g, "");
   const passArrowId = `arr-pass-${reactId}`;
   const runArrowId = `arr-run-${reactId}`;
-  const blockArrowId = `arr-block-${reactId}`;
   const blitzArrowId = `arr-blitz-${reactId}`;
   const w = 900;
   const h = 480;
@@ -242,9 +256,15 @@ function FootballField({
             const nry = Math.max(MIN_ZONE_R, Math.min(MAX_ZONE_RY, Math.abs(pos.y - defResizeDrag.cy)));
             onDefCoveragePatch(defResizeDrag.playerId, { defZoneRy: nry });
           } else {
-            const dist = Math.hypot(pos.x - defResizeDrag.cx, pos.y - defResizeDrag.cy);
-            const r = Math.max(MIN_MAN_RADIUS_YARDS, Math.min(MAX_MAN_RADIUS_YARDS, dist));
-            onDefCoveragePatch(defResizeDrag.playerId, { manRadiusYards: r });
+            const dx = pos.x - defResizeDrag.startX;
+            const dy = pos.y - defResizeDrag.startY;
+            let ncx = defResizeDrag.initialCx + dx;
+            let ncy = defResizeDrag.initialCy + dy;
+            const rx = pl.defZoneRx ?? 6;
+            const ry = pl.defZoneRy ?? 4;
+            ncx = Math.max(rx, Math.min(TOTAL_LENGTH_YARDS - rx, ncx));
+            ncy = Math.max(ry, Math.min(FIELD_H_YARDS - ry, ncy));
+            onDefCoveragePatch(defResizeDrag.playerId, { defZoneCx: ncx, defZoneCy: ncy });
           }
           return;
         }
@@ -288,11 +308,8 @@ function FootballField({
         <marker id={runArrowId} viewBox="0 0 10 10" markerWidth="14" markerHeight="14" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse">
           <path d="M 0 0 L 10 5 L 0 10 z" fill={RUN_RED} stroke={RUN_RED_STROKE} strokeWidth="0.75" />
         </marker>
-        <marker id={blockArrowId} viewBox="0 0 10 10" markerWidth="14" markerHeight="14" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse">
-          <path d="M 0 0 L 10 5 L 0 10 z" fill={BLOCK_GREY} stroke={BLOCK_GREY_STROKE} strokeWidth="0.75" />
-        </marker>
         <marker id={blitzArrowId} viewBox="0 0 10 10" markerWidth="14" markerHeight="14" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse">
-          <path d="M 0 0 L 10 5 L 0 10 z" fill={RUN_RED} stroke={RUN_RED_STROKE} strokeWidth="0.75" />
+          <path d="M 0 0 L 10 5 L 0 10 z" fill={BLITZ_PURPLE} stroke={BLITZ_PURPLE_STROKE} strokeWidth="0.75" />
         </marker>
       </defs>
 
@@ -336,58 +353,52 @@ function FootballField({
         </text>
       </g>
 
-      {/* Line of scrimmage + first down */}
-      <line x1={losPx} y1={0} x2={losPx} y2={h} stroke={LOS_COLOR} strokeWidth={5} strokeLinecap="square" />
-      <rect
-        x={losPx - 14}
-        y={h * 0.42}
-        width={28}
-        height={56}
-        fill="transparent"
-        className="cursor-ew-resize"
-        onPointerDown={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setMarkerDrag("los");
-        }}
-      />
-      <line x1={fdPx} y1={0} x2={fdPx} y2={h} stroke={FIRST_DOWN_COLOR} strokeWidth={5} strokeLinecap="square" />
-      <rect
-        x={fdPx - 14}
-        y={h * 0.42}
-        width={28}
-        height={56}
-        fill="transparent"
-        className="cursor-ew-resize"
-        onPointerDown={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setMarkerDrag("fd");
-        }}
-      />
-
-      {/* Defender zone fills (under routes) */}
+      {/* Defender zone: connector from player to zone + zone ellipse (zone center can be away from defender) */}
       {players
         .filter((p) => p.side === "defense" && p.coverage === "zone")
         .map((p) => {
-          const zx = xSvg(p.x);
-          const zy = ySvg(p.y);
+          const zcx = p.defZoneCx ?? p.x;
+          const zcy = p.defZoneCy ?? p.y;
+          const zx = xSvg(zcx);
+          const zy = ySvg(zcy);
           const rx = ((p.defZoneRx ?? 6) / TOTAL_LENGTH_YARDS) * w;
           const ry = ((p.defZoneRy ?? 4) / FIELD_H_YARDS) * h;
           return (
-            <ellipse key={`dz-${p.id}`} cx={zx} cy={zy} rx={rx} ry={ry} fill={DEF_ZONE_FILL} stroke={DEF_ZONE_STROKE} strokeWidth={2} className="pointer-events-none" />
+            <g key={`dz-${p.id}`}>
+              <line
+                x1={xSvg(p.x)}
+                y1={ySvg(p.y)}
+                x2={zx}
+                y2={zy}
+                stroke={ZONE_CONNECTOR}
+                strokeWidth={3}
+                strokeDasharray="6 4"
+                className="pointer-events-none"
+              />
+              <ellipse cx={zx} cy={zy} rx={rx} ry={ry} fill={DEF_ZONE_FILL} stroke={DEF_ZONE_STROKE} strokeWidth={2} className="pointer-events-none" />
+            </g>
           );
         })}
 
-      {/* Defender man fills */}
+      {/* Man coverage: green line defender → assigned offensive player */}
       {players
-        .filter((p) => p.side === "defense" && p.coverage === "man")
+        .filter((p) => p.side === "defense" && p.coverage === "man" && p.manCoverPlayerId)
         .map((p) => {
-          const zx = xSvg(p.x);
-          const zy = ySvg(p.y);
-          const mr = ((p.manRadiusYards ?? 4) / TOTAL_LENGTH_YARDS) * w;
-          const mry = ((p.manRadiusYards ?? 4) / FIELD_H_YARDS) * h;
-          return <ellipse key={`dm-${p.id}`} cx={zx} cy={zy} rx={mr} ry={mry} fill={MAN_YELLOW} stroke={MAN_YELLOW_STROKE} strokeWidth={2} className="pointer-events-none" />;
+          const tgt = playerById(players, p.manCoverPlayerId!);
+          if (!tgt) return null;
+          return (
+            <line
+              key={`man-${p.id}`}
+              x1={xSvg(p.x)}
+              y1={ySvg(p.y)}
+              x2={xSvg(tgt.x)}
+              y2={ySvg(tgt.y)}
+              stroke={MAN_LINE_GREEN}
+              strokeWidth={4}
+              strokeLinecap="round"
+              className="pointer-events-none"
+            />
+          );
         })}
 
       {/* Blitz arrows toward QB */}
@@ -407,7 +418,7 @@ function FootballField({
                 y1={y1}
                 x2={ex}
                 y2={ey}
-                stroke={RUN_RED}
+                stroke={BLITZ_PURPLE}
                 strokeWidth={4}
                 strokeLinecap="round"
                 markerEnd={`url(#${blitzArrowId})`}
@@ -416,15 +427,17 @@ function FootballField({
             );
           })}
 
-      {/* Skill routes (polyline + arrow) */}
+      {/* Skill routes: pass/run arrow; block ends with perpendicular cap (no arrow) */}
       {players
         .filter((p) => p.side === "offense" && isSkillRole(p.role) && p.routeKind && p.routeWaypoints?.length)
         .map((p) => {
+          const isBlock = p.routeKind === "block";
           const stroke =
             p.routeKind === "pass" ? ROUTE_YELLOW : p.routeKind === "run" ? RUN_RED : BLOCK_GREY;
-          const mid =
-            p.routeKind === "pass" ? passArrowId : p.routeKind === "run" ? runArrowId : blockArrowId;
-          const { pointsAttr } = polylinePointsSvg(p, p.routeWaypoints!, xSvg, ySvg, 16);
+          const mid = p.routeKind === "pass" ? passArrowId : runArrowId;
+          const shorten = isBlock ? 0 : 16;
+          const { pointsAttr, endSvg, prevSvg } = polylinePointsSvg(p, p.routeWaypoints!, xSvg, ySvg, shorten);
+          const cap = isBlock ? blockCapCoords(prevSvg, endSvg, 12) : null;
           return (
             <g key={`rt-${p.id}`}>
               <polyline
@@ -450,7 +463,28 @@ function FootballField({
                   });
                 }}
               />
-              <polyline points={pointsAttr} fill="none" stroke={stroke} strokeWidth={5} strokeLinejoin="round" strokeLinecap="round" markerEnd={`url(#${mid})`} className="pointer-events-none" />
+              <polyline
+                points={pointsAttr}
+                fill="none"
+                stroke={stroke}
+                strokeWidth={5}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                markerEnd={isBlock ? undefined : `url(#${mid})`}
+                className="pointer-events-none"
+              />
+              {cap && (
+                <line
+                  x1={cap.x1}
+                  y1={cap.y1}
+                  x2={cap.x2}
+                  y2={cap.y2}
+                  stroke={BLOCK_GREY}
+                  strokeWidth={5}
+                  strokeLinecap="square"
+                  className="pointer-events-none"
+                />
+              )}
             </g>
           );
         })}
@@ -512,16 +546,41 @@ function FootballField({
         );
       })}
 
-      {/* Defense coverage handles on top */}
+      {/* Zone handles: center = move zone; E/S = resize */}
       {players
         .filter((p) => p.side === "defense" && p.coverage === "zone")
         .map((p) => {
-          const zx = xSvg(p.x);
-          const zy = ySvg(p.y);
+          const zcx = p.defZoneCx ?? p.x;
+          const zcy = p.defZoneCy ?? p.y;
+          const zx = xSvg(zcx);
+          const zy = ySvg(zcy);
           const rx = ((p.defZoneRx ?? 6) / TOTAL_LENGTH_YARDS) * w;
           const ry = ((p.defZoneRy ?? 4) / FIELD_H_YARDS) * h;
           return (
             <g key={`dzh-${p.id}`}>
+              <circle
+                cx={zx}
+                cy={zy}
+                r={9}
+                fill="white"
+                stroke={DEF_ZONE_STROKE}
+                strokeWidth={2}
+                className="cursor-move"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const yard = toYard(e);
+                  if (!yard) return;
+                  setDefResizeDrag({
+                    playerId: p.id,
+                    kind: "zone-move",
+                    startX: yard.x,
+                    startY: yard.y,
+                    initialCx: zcx,
+                    initialCy: zcy,
+                  });
+                }}
+              />
               <circle
                 cx={zx + rx}
                 cy={zy}
@@ -533,7 +592,7 @@ function FootballField({
                 onPointerDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  setDefResizeDrag({ playerId: p.id, kind: "zone-rx", cx: p.x, cy: p.y });
+                  setDefResizeDrag({ playerId: p.id, kind: "zone-rx", cx: zcx, cy: zcy });
                 }}
               />
               <circle
@@ -547,37 +606,42 @@ function FootballField({
                 onPointerDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  setDefResizeDrag({ playerId: p.id, kind: "zone-ry", cx: p.x, cy: p.y });
+                  setDefResizeDrag({ playerId: p.id, kind: "zone-ry", cx: zcx, cy: zcy });
                 }}
               />
             </g>
           );
         })}
 
-      {players
-        .filter((p) => p.side === "defense" && p.coverage === "man")
-        .map((p) => {
-          const zx = xSvg(p.x);
-          const zy = ySvg(p.y);
-          const mr = ((p.manRadiusYards ?? 4) / TOTAL_LENGTH_YARDS) * w;
-          return (
-            <circle
-              key={`dmh-${p.id}`}
-              cx={zx + mr}
-              cy={zy}
-              r={8}
-              fill="white"
-              stroke={MAN_YELLOW_STROKE}
-              strokeWidth={2}
-              className="cursor-ew-resize"
-              onPointerDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setDefResizeDrag({ playerId: p.id, kind: "man-r", cx: p.x, cy: p.y });
-              }}
-            />
-          );
-        })}
+      {/* Line of scrimmage + first down — drawn on top with full-height drag strips so they stay easy to grab */}
+      <line x1={losPx} y1={0} x2={losPx} y2={h} stroke={LOS_COLOR} strokeWidth={5} strokeLinecap="square" pointerEvents="none" />
+      <rect
+        x={losPx - 16}
+        y={0}
+        width={32}
+        height={h}
+        fill="rgba(0,0,0,0.001)"
+        className="cursor-ew-resize"
+        onPointerDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setMarkerDrag("los");
+        }}
+      />
+      <line x1={fdPx} y1={0} x2={fdPx} y2={h} stroke={FIRST_DOWN_COLOR} strokeWidth={5} strokeLinecap="square" pointerEvents="none" />
+      <rect
+        x={fdPx - 16}
+        y={0}
+        width={32}
+        height={h}
+        fill="rgba(0,0,0,0.001)"
+        className="cursor-ew-resize"
+        onPointerDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setMarkerDrag("fd");
+        }}
+      />
     </svg>
   );
 }
@@ -598,13 +662,18 @@ function normalizeSkillPlayer(p: FieldPlayer): FieldPlayer {
 function normalizeDefender(p: FieldPlayer): FieldPlayer {
   if (p.side !== "defense") return p;
   const cov = p.coverage ?? "zone";
-  return {
+  const base: FieldPlayer = {
     ...p,
     coverage: cov,
     defZoneRx: p.defZoneRx ?? 6,
     defZoneRy: p.defZoneRy ?? 4,
-    manRadiusYards: p.manRadiusYards ?? 4,
+    defZoneCx: p.defZoneCx ?? p.x,
+    defZoneCy: p.defZoneCy ?? p.y,
   };
+  if (cov === "man" && !base.manCoverPlayerId) {
+    return { ...base, manCoverPlayerId: "o-qb" };
+  }
+  return base;
 }
 
 function defaultPlayers(): FieldPlayer[] {
@@ -674,12 +743,46 @@ function defaultPlayers(): FieldPlayer[] {
     }),
   ];
   const d: FieldPlayer[] = [
-    normalizeDefender({ id: "d-1", role: "CB", side: "defense", x: dx, y: 12, coverage: "man" }),
-    normalizeDefender({ id: "d-2", role: "CB", side: "defense", x: dx - 4, y: 44, coverage: "zone" }),
+    normalizeDefender({
+      id: "d-1",
+      role: "CB",
+      side: "defense",
+      x: dx,
+      y: 12,
+      coverage: "man",
+      manCoverPlayerId: "o-wr1",
+    }),
+    normalizeDefender({
+      id: "d-2",
+      role: "CB",
+      side: "defense",
+      x: dx - 4,
+      y: 44,
+      coverage: "zone",
+      defZoneCx: dx + 4,
+      defZoneCy: 40,
+    }),
     normalizeDefender({ id: "d-3", role: "LB", side: "defense", x: dx - 8, y: 26.65, coverage: "blitz" }),
-    normalizeDefender({ id: "d-4", role: "LB", side: "defense", x: dx - 12, y: 32, coverage: "zone" }),
+    normalizeDefender({
+      id: "d-4",
+      role: "LB",
+      side: "defense",
+      x: dx - 12,
+      y: 32,
+      coverage: "zone",
+      defZoneCx: dx - 4,
+      defZoneCy: 28,
+    }),
     normalizeDefender({ id: "d-5", role: "S", side: "defense", x: dx + 10, y: 20, coverage: "blitz" }),
-    normalizeDefender({ id: "d-6", role: "S", side: "defense", x: dx + 8, y: 34, coverage: "man" }),
+    normalizeDefender({
+      id: "d-6",
+      role: "S",
+      side: "defense",
+      x: dx + 8,
+      y: 34,
+      coverage: "man",
+      manCoverPlayerId: "o-qb",
+    }),
   ];
   return [...o, ...d];
 }
@@ -743,9 +846,13 @@ export default function Playbook() {
 
   const onDefCoveragePatch = (
     playerId: string,
-    patch: Partial<Pick<FieldPlayer, "defZoneRx" | "defZoneRy" | "manRadiusYards">>,
+    patch: Partial<Pick<FieldPlayer, "defZoneCx" | "defZoneCy" | "defZoneRx" | "defZoneRy" | "manCoverPlayerId">>,
   ) => {
     setPlayers((prev) => prev.map((p) => (p.id === playerId ? { ...p, ...patch } : p)));
+  };
+
+  const setManCoverPlayer = (defenderId: string, offensePlayerId: string) => {
+    onDefCoveragePatch(defenderId, { manCoverPlayerId: offensePlayerId });
   };
 
   const onMarkerX = (which: "los" | "fd", x: number) => {
@@ -784,7 +891,15 @@ export default function Playbook() {
       const d = prev.filter((p) => p.side === "defense");
       const target = d[index];
       if (!target) return prev;
-      const updated = normalizeDefender({ ...target, coverage: cov });
+      let next: FieldPlayer = { ...target, coverage: cov };
+      if (cov === "zone") {
+        next.defZoneCx = target.defZoneCx ?? target.x;
+        next.defZoneCy = target.defZoneCy ?? target.y;
+      }
+      if (cov === "man" && !next.manCoverPlayerId) {
+        next.manCoverPlayerId = o.find((x) => x.role === "QB")?.id ?? o[0]?.id;
+      }
+      const updated = normalizeDefender(next);
       const dd = d.map((p, i) => (i === index ? updated : p));
       return [...o, ...dd];
     });
@@ -820,9 +935,9 @@ export default function Playbook() {
       <div>
         <div className="text-2xl font-semibold">Playbook</div>
         <p className="mt-1 text-sm text-gray-600">
-          Six on offense (1 QB + 5 skill), six on defense. Each skill player has a run (red), pass (yellow), or block (grey) route
-          with bendable points. Defenders use zone (blue), man (yellow), or blitz (red arrow to QB). Drag the black line of
-          scrimmage and orange first-down marker; distance to gain stays positive.
+          Skill routes: pass (yellow arrow), run (red arrow), block (grey stem ending in a perpendicular bar). Defense: zone (blue
+          blob you can drag away from the defender; dashed blue link), man (green line to an offensive player), blitz (purple arrow
+          to QB). Drag the black LOS and orange first-down lines by their strips.
         </p>
       </div>
 
@@ -911,11 +1026,27 @@ export default function Playbook() {
                   value={p.coverage ?? "zone"}
                   onChange={(e) => setDefenseCoverage(i, e.target.value as DefensiveCoverageKind)}
                 >
-                  <option value="zone">Zone (blue)</option>
-                  <option value="man">Man (yellow)</option>
-                  <option value="blitz">Blitz → QB</option>
+                  <option value="zone">Zone (blue + link)</option>
+                  <option value="man">Man (green line)</option>
+                  <option value="blitz">Blitz (purple → QB)</option>
                 </select>
               </label>
+              {p.coverage === "man" && (
+                <label className="flex items-center gap-2 text-gray-600">
+                  Covers
+                  <select
+                    className="flex-1 rounded border border-gray-200 bg-white px-1 py-0.5"
+                    value={p.manCoverPlayerId ?? ""}
+                    onChange={(e) => setManCoverPlayer(p.id, e.target.value)}
+                  >
+                    {offense.map((op) => (
+                      <option key={op.id} value={op.id}>
+                        {op.role} ({op.id})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
           ))}
 

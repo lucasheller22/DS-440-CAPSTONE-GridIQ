@@ -17,6 +17,7 @@ from app.schemas.conversation import (
 )
 from app.core.config import Settings, _DEFAULT_ENV_FILE
 from app.nflverse_chat_context import build_nflverse_schedule_context
+from app.nflverse_chat_pbp import build_optional_play_by_play_section
 
 router = APIRouter()
 
@@ -59,7 +60,11 @@ When answering questions:
 4. Ask clarifying questions if needed
 5. Consider different skill levels (player, coach, fan)
 
-Use every non-empty section below: **Database plays** (if synced) and **nflverse schedule snapshot** (public schedules/scores). Do not invent game results if the snapshot says data is missing."""
+Use every non-empty section below: **Database plays** (if synced), **nflverse schedule snapshot** (public schedules/scores), and optionally **Attached play-by-play**. Do not invent game results if the snapshot says data is missing.
+
+### Play-by-play
+- If **## Attached play-by-play** is present, you may analyze those plays (reference quarter / down & distance when useful).
+- If **## Play-by-play** asks you to clarify, do **not** make up plays — ask the listed follow-up questions briefly, then wait for the user."""
 
 
 def build_football_context(db: Session, team: str = None, season: int = None, week: int = None) -> str:
@@ -328,11 +333,20 @@ def chat(
     )
     db.add(user_message_obj)
     db.flush()
-    
-    # SQLite plays (if any) + live nflverse schedule snapshot for the model
+
+    hist = (
+        db.query(Message)
+        .filter(Message.conversation_id == conversation.id)
+        .order_by(Message.created_at.asc())
+        .all()
+    )
+    transcript = "\n".join(f"{m.role}: {(m.content or '')[:1500]}" for m in hist[-16:])
+
+    # SQLite plays (if any) + nflverse schedule + optional on-demand PBP (same Gemini payload, no API contract change)
     db_ctx = build_football_context(db).strip()
     verse_ctx = build_nflverse_schedule_context(payload.message).strip()
-    football_context = "\n\n".join(x for x in (db_ctx, verse_ctx) if x)
+    pbp_ctx = build_optional_play_by_play_section(transcript, payload.message).strip()
+    football_context = "\n\n".join(x for x in (db_ctx, verse_ctx, pbp_ctx) if x)
     
     # Get AI response (on Gemini 503/500, persist explanation so the thread updates instead of only an HTTP error panel).
     try:

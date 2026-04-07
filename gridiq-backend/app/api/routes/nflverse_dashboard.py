@@ -10,47 +10,10 @@ import numpy as np
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 
-from app.nflverse_parquet import read_parquet_from_url_fill_columns
+from app.nflverse_pbp_store import load_season_frame
 from app.nflverse_schedules import get_schedules_dataframe
 
 router = APIRouter()
-
-# One season of play-by-play in memory after first request (narrow columns only).
-_season_pbp_frames: dict[int, pd.DataFrame] = {}
-
-_PBP_PARQUET_URL = (
-    "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_{season}.parquet"
-)
-
-_PBP_COLS = [
-    "play_id",
-    "game_id",
-    "week",
-    "qtr",
-    "down",
-    "ydstogo",
-    "play_type",
-    "desc",
-    "posteam",
-    "defteam",
-    "home_team",
-    "away_team",
-    "epa",
-    "yards_gained",
-    "passer_player_name",
-    "rusher_player_name",
-    "receiver_player_name",
-    "complete_pass",
-    "pass_touchdown",
-    "rush_touchdown",
-    "touchdown",
-    "interception",
-    "fumble",
-    "fumble_lost",
-    "field_goal_result",
-    "total_home_score",
-    "total_away_score",
-]
 
 
 def _cell_json(v: Any) -> Any:
@@ -340,19 +303,6 @@ def _game_summary_dict(game_id: str, sub: pd.DataFrame) -> dict[str, Any]:
     }
 
 
-def _load_season_pbp_frame(season: int) -> pd.DataFrame:
-    """Load one season from nflverse; column-pruned and float32 like nfl_data_py downcast."""
-    url = _PBP_PARQUET_URL.format(season=season)
-    df = read_parquet_from_url_fill_columns(url, columns=_PBP_COLS, timeout_sec=300)
-    if df.empty:
-        return df
-    f64 = df.select_dtypes(include=[np.float64]).columns
-    if len(f64) > 0:
-        df = df.copy()
-        df[f64] = df[f64].astype(np.float32)
-    return df
-
-
 @router.get("/nflverse/schedule")
 def nflverse_schedule(
     season: int = Query(..., ge=1999, le=2035, description="NFL season year"),
@@ -401,9 +351,7 @@ def nflverse_game_plays(
     season = _season_from_game_id(game_id)
 
     try:
-        if season not in _season_pbp_frames:
-            _season_pbp_frames[season] = _load_season_pbp_frame(season)
-        frame = _season_pbp_frames[season]
+        frame = load_season_frame(season)
         sub = frame[frame["game_id"] == game_id]
     except HTTPException:
         raise
@@ -424,9 +372,7 @@ def nflverse_game_summary(game_id: str):
     season = _season_from_game_id(game_id)
 
     try:
-        if season not in _season_pbp_frames:
-            _season_pbp_frames[season] = _load_season_pbp_frame(season)
-        frame = _season_pbp_frames[season]
+        frame = load_season_frame(season)
         sub = frame[frame["game_id"] == game_id]
     except HTTPException:
         raise

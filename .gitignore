@@ -4,6 +4,9 @@
 # Local SQLite database (dev)
 gridiq-backend/gridiq.db
 
+# nflverse Parquet disk cache (schedules)
+gridiq-backend/.cache/
+
 # Python
 __pycache__/
 *.pyc

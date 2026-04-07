@@ -1,4 +1,4 @@
-"""Read-only nflverse data for the dashboard (via nfl_data_py / nflverse releases)."""
+"""Read-only nflverse data for the dashboard (nflverse GitHub releases)."""
 
 from __future__ import annotations
 
@@ -10,12 +10,17 @@ import numpy as np
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 
+from app.nflverse_parquet import read_parquet_from_url
 from app.nflverse_schedules import get_schedules_dataframe
 
 router = APIRouter()
 
 # One season of play-by-play in memory after first request (narrow columns only).
 _season_pbp_frames: dict[int, pd.DataFrame] = {}
+
+_PBP_PARQUET_URL = (
+    "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_{season}.parquet"
+)
 
 _PBP_COLS = [
     "play_id",
@@ -112,6 +117,19 @@ def _season_from_game_id(game_id: str) -> int:
     return int(parts[0])
 
 
+def _load_season_pbp_frame(season: int) -> pd.DataFrame:
+    """Load one season from nflverse; column-pruned and float32 like nfl_data_py downcast."""
+    url = _PBP_PARQUET_URL.format(season=season)
+    df = read_parquet_from_url(url, columns=_PBP_COLS, timeout_sec=300)
+    if df.empty:
+        return df
+    f64 = df.select_dtypes(include=[np.float64]).columns
+    if len(f64) > 0:
+        df = df.copy()
+        df[f64] = df[f64].astype(np.float32)
+    return df
+
+
 @router.get("/nflverse/schedule")
 def nflverse_schedule(
     season: int = Query(..., ge=1999, le=2035, description="NFL season year"),
@@ -157,21 +175,11 @@ def nflverse_game_plays(
     limit: int = Query(250, ge=1, le=500),
 ):
     """Play-by-play for one game (nflverse game_id), e.g. 2023_01_DET_KC."""
-    try:
-        import nfl_data_py as nfl
-    except ImportError as e:
-        raise HTTPException(status_code=503, detail=f"nfl_data_py not available: {e}") from e
-
     season = _season_from_game_id(game_id)
 
     try:
         if season not in _season_pbp_frames:
-            _season_pbp_frames[season] = nfl.import_pbp_data(
-                [season],
-                columns=_PBP_COLS,
-                cache=True,
-                downcast=True,
-            )
+            _season_pbp_frames[season] = _load_season_pbp_frame(season)
         frame = _season_pbp_frames[season]
         sub = frame[frame["game_id"] == game_id]
     except HTTPException:

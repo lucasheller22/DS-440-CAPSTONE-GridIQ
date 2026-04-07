@@ -99,9 +99,11 @@ export default function Chat() {
   return (
     <div className="space-y-4">
       <div>
-        <div className="text-2xl font-semibold">Chat</div>
-        <div className="mt-1 text-sm text-gray-600">
-          Threaded chat UI using backend Chat API (real auth + persistence). Implement streaming once available.
+        <div className="text-2xl font-semibold tracking-tight text-slate-900">Chat</div>
+        <div className="mt-1 text-sm text-slate-600">
+          AI coach with your conversation history. Each request includes a compact{" "}
+          <span className="font-medium text-slate-800">nflverse</span> schedule snapshot (scores, PPG leaders, team
+          abbreviations you mention) so answers can reference real season data when relevant.
         </div>
       </div>
 
@@ -127,13 +129,11 @@ export default function Chat() {
             New conversation
           </Button>
         </div>
-        <p className="text-xs text-amber-900/80 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-          Bubbles are loaded from the server database. If you still see old setup text (e.g. mentioning OpenAI), click{" "}
-          <strong>New conversation</strong> and send again. To wipe all chat history, stop uvicorn, delete{" "}
-          <strong>gridiq-backend/gridiq.db</strong> (and any stray <strong>gridiq.db</strong> in the monorepo root if you
-          ever started the server from the wrong folder), then restart and sign in again.
+        <p className="rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-xs text-amber-950">
+          <span className="font-medium">Tip:</span> use <strong>New conversation</strong> if replies look stale. Full
+          reset: stop the API, delete <code className="rounded bg-white/80 px-1">gridiq-backend/gridiq.db</code>, restart.
         </p>
-        <div className="h-[min(70vh,calc(100vh-14rem))] space-y-2 overflow-auto rounded-xl border border-gray-100 bg-white p-3">
+        <div className="h-[min(70vh,calc(100vh-14rem))] space-y-2 overflow-auto rounded-xl border border-white/60 bg-white/80 p-3">
           {isLoadError ? (
             <div className="text-sm text-red-700">
               {axios.isAxiosError(loadError)

@@ -1,8 +1,13 @@
 import { Card } from "../ui/primitives/Card";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import * as api from "../lib/api/endpoints";
+import { aggregateTeamSeason } from "../lib/nflverseAnalytics";
 import type { NflverseGameSummary } from "../types";
+import { DashboardCharts } from "./DashboardCharts";
+
+const fieldSelect =
+  "rounded-lg border border-slate-300/80 bg-white/90 p-2 text-sm text-slate-900 shadow-sm";
 
 function fmtScore(v: number | null | undefined, fallback: number | null | undefined): string {
   if (v != null && !Number.isNaN(Number(v))) return String(Number(v));
@@ -47,8 +52,8 @@ function StatColumn({
   const fumTxt = `${fum.playsWithFumble} fumble plays, ${fum.lost} lost`;
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-      <div className="border-b border-gray-100 pb-2 text-xs font-semibold text-gray-800">{label}</div>
+    <div className="rounded-lg border border-white/60 bg-white/70 p-3 shadow-sm">
+      <div className="border-b border-slate-200/80 pb-2 text-xs font-semibold text-slate-800">{label}</div>
       {line("Top rusher", rusherTxt)}
       {line("Top WR (yards / catches)", recTxt)}
       {line("Passing (yards · TD · INT)", passTxt)}
@@ -62,6 +67,7 @@ export default function Dashboard() {
   const [season, setSeason] = useState(2024);
   const [weekFilter, setWeekFilter] = useState<number | "">("");
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const [chartTeam, setChartTeam] = useState("");
 
   const {
     data: scheduleGames = [],
@@ -117,11 +123,6 @@ export default function Dashboard() {
     return [...counts.entries()].sort((a, b) => a[0] - b[0]);
   }, [scheduleGames]);
 
-  const maxWeekCount = useMemo(
-    () => playsPerWeek.reduce((m, [, c]) => Math.max(m, c), 0),
-    [playsPerWeek],
-  );
-
   const selectedGame = useMemo(
     () => scheduleGames.find((g) => g.gameId === selectedGameId) ?? null,
     [scheduleGames, selectedGameId],
@@ -135,30 +136,26 @@ export default function Dashboard() {
     };
   }, [gameSummary, selectedGame]);
 
+  const teamAgg = useMemo(() => aggregateTeamSeason(scheduleGames), [scheduleGames]);
+
+  useEffect(() => {
+    setChartTeam((prev) => {
+      const list = teamAgg.teams;
+      if (prev && list.some((x) => x.team === prev)) return prev;
+      return list[0]?.team ?? "";
+    });
+  }, [teamAgg]);
+
   return (
     <div className="space-y-4">
       <div>
-        <div className="text-2xl font-semibold">Dashboard</div>
-        <p className="mt-1 text-sm text-gray-600">
-          NFL schedule and play-by-play from the open{" "}
-          <a
-            className="text-blue-600 underline"
-            href="https://github.com/nflverse"
-            target="_blank"
-            rel="noreferrer"
-          >
+        <div className="text-2xl font-semibold tracking-tight text-slate-900">Dashboard</div>
+        <p className="mt-1 text-sm text-slate-600">
+          NFL schedules, box scores, and play samples via{" "}
+          <a className="font-medium underline" href="https://github.com/nflverse" target="_blank" rel="noreferrer">
             nflverse
           </a>{" "}
-          dataset (via{" "}
-          <a
-            className="text-blue-600 underline"
-            href="https://github.com/nflverse/nfl_data_py"
-            target="_blank"
-            rel="noreferrer"
-          >
-            nfl_data_py
-          </a>
-          ). Licensed CC-BY-4.0.
+          (CC BY 4.0). First season load can take a moment while data caches.
         </p>
       </div>
 
@@ -170,7 +167,7 @@ export default function Dashboard() {
             </label>
             <select
               id="dash-season"
-              className="rounded border border-gray-300 p-2"
+              className={fieldSelect}
               value={season}
               onChange={(e) => {
                 setSeason(Number(e.target.value));
@@ -190,7 +187,7 @@ export default function Dashboard() {
             </label>
             <select
               id="dash-week"
-              className="rounded border border-gray-300 p-2"
+              className={fieldSelect}
               value={weekFilter === "" ? "" : String(weekFilter)}
               onChange={(e) => {
                 const v = e.target.value;
@@ -216,7 +213,7 @@ export default function Dashboard() {
           </label>
           <select
             id="dash-game"
-            className="rounded border border-gray-300 p-2"
+            className={fieldSelect}
             value={selectedGameId ?? ""}
             onChange={(e) => setSelectedGameId(e.target.value || null)}
           >
@@ -244,13 +241,22 @@ export default function Dashboard() {
         </div>
       </Card>
 
+      <Card>
+        <DashboardCharts
+          scheduleGames={scheduleGames}
+          playsPerWeek={playsPerWeek}
+          chartTeam={chartTeam}
+          onChartTeamChange={setChartTeam}
+          plays={plays}
+          matchupAway={gameSummary?.awayTeam ?? selectedGame?.awayTeam ?? null}
+          matchupHome={gameSummary?.homeTeam ?? selectedGame?.homeTeam ?? null}
+        />
+      </Card>
+
       {selectedGameId && selectedGame && (
         <Card className="space-y-4">
           <div>
-            <div className="text-sm font-semibold">Game insight</div>
-            <p className="mt-1 text-xs text-gray-500">
-              Home team is listed on the right. Scores and quarterly points come from nflverse play-by-play totals.
-            </p>
+            <div className="text-sm font-semibold text-slate-800">Game detail</div>
           </div>
 
           {loadingSummary ? (
@@ -347,17 +353,15 @@ export default function Dashboard() {
 
       {selectedGameId && (
         <Card>
-          <div className="text-sm font-semibold">Plays (nflverse PBP)</div>
+          <div className="text-sm font-semibold text-slate-800">Play-by-play sample</div>
           {selectedGame && (
-            <div className="mt-1 text-xs text-gray-500">
+            <div className="mt-1 text-xs text-slate-500">
               {selectedGame.awayTeam} @ {selectedGame.homeTeam}
               {selectedGame.stadium ? ` · ${selectedGame.stadium}` : ""}
             </div>
           )}
           {loadingPlays ? (
-            <div className="mt-2 text-xs text-gray-500">
-              Loading play-by-play (first load for a season can take a bit while data caches)…
-            </div>
+            <div className="mt-2 text-xs text-slate-500">Loading plays…</div>
           ) : playsError ? (
             <div className="mt-2 text-xs text-red-600">
               {playsErr instanceof Error ? playsErr.message : "Could not load plays."}
@@ -367,7 +371,7 @@ export default function Dashboard() {
           ) : (
             <ul className="mt-2 max-h-[28rem] space-y-2 overflow-y-auto pr-1">
               {plays.map((p) => (
-                <li key={p.id} className="rounded border border-gray-200 p-2">
+                <li key={p.id} className="rounded border border-slate-200/80 bg-white/50 p-2">
                   <div className="text-sm font-medium">
                     Q{p.quarter ?? "—"} ·{" "}
                     {p.down != null && p.yardsToGo != null
@@ -387,48 +391,6 @@ export default function Dashboard() {
           )}
         </Card>
       )}
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card>
-          <div className="text-sm font-semibold">Insights</div>
-          <div className="mt-2 space-y-1 text-sm text-gray-600">
-            <div>
-              <span className="font-medium text-gray-800">{scheduleGames.length}</span> regular-season
-              games loaded for {season}
-              {weekFilter !== "" ? ` (week ${weekFilter} only)` : ""}.
-            </div>
-            {selectedGame && (
-              <div>
-                Selected:{" "}
-                <span className="font-medium text-gray-800">
-                  {selectedGame.awayTeam} @ {selectedGame.homeTeam}
-                </span>
-                , week {selectedGame.week}.
-              </div>
-            )}
-          </div>
-        </Card>
-        <Card>
-          <div className="text-sm font-semibold">Games per week</div>
-          <div className="mt-3 flex h-28 items-end gap-1">
-            {playsPerWeek.map(([w, count]) => (
-              <div key={w} className="flex flex-1 flex-col items-center gap-1">
-                <div
-                  className="w-full rounded-t bg-blue-500/80"
-                  style={{
-                    height: `${maxWeekCount ? Math.max(6, (count / maxWeekCount) * 88) : 6}px`,
-                  }}
-                  title={`Week ${w}: ${count} games`}
-                />
-                <span className="text-[10px] text-gray-500">{w}</span>
-              </div>
-            ))}
-          </div>
-          {playsPerWeek.length === 0 && !loadingSchedule && (
-            <div className="mt-2 text-sm text-gray-600">No data for this filter.</div>
-          )}
-        </Card>
-      </div>
     </div>
   );
 }

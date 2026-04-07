@@ -7,11 +7,15 @@ export function Topbar() {
   const navigate = useNavigate();
 
   return (
-    <div className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 shadow-sm">
-      <div className="text-sm text-gray-600">
+    <div className="flex items-center justify-between rounded-2xl border border-white/50 bg-stadium-concrete/95 px-4 py-3 shadow-panel backdrop-blur-sm">
+      <div className="min-w-0 text-sm text-slate-600">
         {user ? (
           <>
-            Signed in as <span className="font-medium text-gray-900">{user.displayName}</span> ({user.role})
+            Signed in as{" "}
+            <span className="font-medium break-all text-slate-900" title={user.email}>
+              {user.email}
+            </span>
+            <span className="ml-2 hidden text-xs text-slate-500 sm:inline">({user.role})</span>
           </>
         ) : (
           "Not signed in"

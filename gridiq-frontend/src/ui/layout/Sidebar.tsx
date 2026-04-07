@@ -11,8 +11,9 @@ const nav = [
 
 export function Sidebar() {
   return (
-    <div className="sticky top-4 rounded-2xl bg-white p-4 shadow-sm">
-      <div className="text-lg font-semibold">GridIQ</div>
+    <div className="sticky top-4 rounded-2xl border border-white/50 bg-stadium-concrete/95 p-4 shadow-panel backdrop-blur-sm">
+      <div className="text-lg font-semibold tracking-tight text-slate-900">GridIQ</div>
+      <p className="mt-0.5 text-[11px] leading-snug text-slate-500">Stadium night & turf</p>
       <div className="mt-3 space-y-1">
         {nav.map((item) => (
           <NavLink
@@ -20,8 +21,10 @@ export function Sidebar() {
             to={item.to}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium",
-                isActive ? "bg-gray-100" : "hover:bg-gray-50"
+                "flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-stadium-turf/15 text-stadium-turf"
+                  : "text-slate-700 hover:bg-white/60",
               )
             }
           >
@@ -30,8 +33,12 @@ export function Sidebar() {
           </NavLink>
         ))}
       </div>
-      <div className="mt-4 text-xs text-gray-500">
-        Starter framework: routing, auth gate, chat skeleton, play visualizer placeholder.
+      <div className="mt-4 border-t border-white/40 pt-3 text-[11px] leading-snug text-slate-500">
+        Schedules &amp; scores from{" "}
+        <a href="https://github.com/nflverse" target="_blank" rel="noreferrer" className="font-medium">
+          nflverse
+        </a>
+        .
       </div>
     </div>
   );

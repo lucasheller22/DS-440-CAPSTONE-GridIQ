@@ -16,6 +16,7 @@ from app.schemas.conversation import (
     MessageCreateSchema,
 )
 from app.core.config import Settings, _DEFAULT_ENV_FILE
+from app.nflverse_chat_context import build_nflverse_schedule_context
 
 router = APIRouter()
 
@@ -58,7 +59,7 @@ When answering questions:
 4. Ask clarifying questions if needed
 5. Consider different skill levels (player, coach, fan)
 
-Use the provided NFL data context to enhance your responses when it is non-empty."""
+Use every non-empty section below: **Database plays** (if synced) and **nflverse schedule snapshot** (public schedules/scores). Do not invent game results if the snapshot says data is missing."""
 
 
 def build_football_context(db: Session, team: str = None, season: int = None, week: int = None) -> str:
@@ -328,8 +329,10 @@ def chat(
     db.add(user_message_obj)
     db.flush()
     
-    # Build football context from recent plays
-    football_context = build_football_context(db)
+    # SQLite plays (if any) + live nflverse schedule snapshot for the model
+    db_ctx = build_football_context(db).strip()
+    verse_ctx = build_nflverse_schedule_context(payload.message).strip()
+    football_context = "\n\n".join(x for x in (db_ctx, verse_ctx) if x)
     
     # Get AI response (on Gemini 503/500, persist explanation so the thread updates instead of only an HTTP error panel).
     try:

@@ -60,9 +60,15 @@ Then edit **`gridiq-backend/.env`**:
 **First time only — install and database:**
 
 ```bash
-pip install -r requirements.txt
+py -m pip install -r requirements.txt pyarrow
 python -m alembic upgrade head
 ```
+
+> The dashboard needs a parquet engine to load nflverse data. If you prefer, you can also install `fastparquet`:
+>
+> ```bash
+> py -m pip install -r requirements.txt pyarrow fastparquet
+> ```
 
 **Start the API** (run this **every time** you work on the backend):
 

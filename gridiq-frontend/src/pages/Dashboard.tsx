@@ -15,7 +15,7 @@ function fmtScore(v: number | null | undefined, fallback: number | null | undefi
   return "—";
 }
 
-const SEASON_CHOICES = [2024, 2023, 2022, 2021, 2020, 2019];
+const SEASON_CHOICES = [2025];
 
 function StatColumn({
   label,
@@ -64,7 +64,7 @@ function StatColumn({
 }
 
 export default function Dashboard() {
-  const [season, setSeason] = useState(2024);
+  const [season, setSeason] = useState(2025);
   const [weekFilter, setWeekFilter] = useState<number | "">("");
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [chartTeam, setChartTeam] = useState("");

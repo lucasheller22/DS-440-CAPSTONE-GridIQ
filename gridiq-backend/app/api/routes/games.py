@@ -4,9 +4,14 @@ import uuid
 
 from app.api.deps import get_db, get_current_user
 from app.models.game import Game, Play
+from app.nflverse_schedules import allowed_nflverse_seasons
 from app.schemas.game import GameSchema, GameDetailSchema, PlaySchema, GameFilterSchema, PlayFilterSchema
 
 router = APIRouter()
+
+_SYNC_SEASON_MSG = (
+    "Only seasons listed in NFLVERSE_SEASONS (gridiq-backend/.env) can be synced."
+)
 
 
 @router.get("/games", response_model=list[GameSchema])
@@ -133,6 +138,16 @@ def sync_games(
     db: Session = Depends(get_db),
 ):
     """Sync games from nflverse for a season."""
+    allowed = allowed_nflverse_seasons()
+    if season not in allowed:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Season {season} is not enabled for nflverse sync. "
+                f"Allowed: {sorted(allowed)}. {_SYNC_SEASON_MSG}"
+            ),
+        )
+
     try:
         from app.nflverse_schedules import get_schedules_dataframe
 
@@ -175,9 +190,19 @@ def sync_plays(
     db: Session = Depends(get_db),
 ):
     """Sync plays from nflverse for a season."""
+    allowed = allowed_nflverse_seasons()
+    if season not in allowed:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Season {season} is not enabled for nflverse sync. "
+                f"Allowed: {sorted(allowed)}. {_SYNC_SEASON_MSG}"
+            ),
+        )
+
     try:
         import nfl_data_py as nfl
-        
+
         # Fetch plays from nflverse
         plays_data = nfl.import_pbp_data([season])
         

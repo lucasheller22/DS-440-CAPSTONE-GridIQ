@@ -11,9 +11,11 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 
 from app.nflverse_pbp_store import load_season_frame
-from app.nflverse_schedules import get_schedules_dataframe
+from app.nflverse_schedules import allowed_nflverse_seasons, get_schedules_dataframe
 
 router = APIRouter()
+
+_SEASON_MSG = "Change NFLVERSE_SEASONS in gridiq-backend/.env and restart the API."
 
 
 def _cell_json(v: Any) -> Any:
@@ -310,6 +312,12 @@ def nflverse_schedule(
     game_type: str = Query("REG", description="REG, POST, or ALL"),
 ):
     """Regular-season (or postseason) schedule from nflverse."""
+    allowed = allowed_nflverse_seasons()
+    if season not in allowed:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Season {season} is not loaded. Allowed: {sorted(allowed)}. {_SEASON_MSG}",
+        )
     try:
         df = get_schedules_dataframe()
         df = df.loc[df["season"] == season].copy()
@@ -349,6 +357,11 @@ def nflverse_game_plays(
 ):
     """Play-by-play for one game (nflverse game_id), e.g. 2023_01_DET_KC."""
     season = _season_from_game_id(game_id)
+    if season not in allowed_nflverse_seasons():
+        raise HTTPException(
+            status_code=400,
+            detail=f"PBP for season {season} is not loaded. Allowed: {sorted(allowed_nflverse_seasons())}. {_SEASON_MSG}",
+        )
 
     try:
         frame = load_season_frame(season)
@@ -370,6 +383,11 @@ def nflverse_game_plays(
 def nflverse_game_summary(game_id: str):
     """Aggregated box-score style stats for one game (full PBP slice; no play limit)."""
     season = _season_from_game_id(game_id)
+    if season not in allowed_nflverse_seasons():
+        raise HTTPException(
+            status_code=400,
+            detail=f"PBP for season {season} is not loaded. Allowed: {sorted(allowed_nflverse_seasons())}. {_SEASON_MSG}",
+        )
 
     try:
         frame = load_season_frame(season)

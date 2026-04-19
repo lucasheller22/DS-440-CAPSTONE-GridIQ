@@ -70,7 +70,7 @@ For local UI without the API: **Settings → Use local mocks** or add `gridiq-fr
 ## Optional
 
 - **Postgres:** `cd gridiq-backend && docker compose up -d db`, set `DATABASE_URL` in `.env` (see `.env.example`), then `python -m alembic upgrade head`.
-- **Sync NFL data:** `curl -X POST "http://localhost:8000/api/games/sync/games?season=2023" -H "Authorization: Bearer <JWT>"`
+- **Sync NFL data:** `curl -X POST "http://localhost:8000/api/games/sync/games?season=2025" -H "Authorization: Bearer <JWT>"` — only seasons in **`NFLVERSE_SEASONS`** (default **`2025`** in **`gridiq-backend/.env.example`**) can be synced.
 
 ---
 
@@ -81,6 +81,7 @@ For local UI without the API: **Settings → Use local mocks** or add `gridiq-fr
 | `No module named 'app'` | Run `uvicorn` inside **`gridiq-backend`**. |
 | Chat idle / setup message | Add `GEMINI_API_KEY`, restart API. |
 | Parquet / dashboard errors | Ensure **`pyarrow`** installed (`pip install …` above). |
+| nflverse **400** / wrong season | Backend defaults to **`NFLVERSE_SEASONS=2025`** only. Add years in **`gridiq-backend/.env`** (comma-separated), restart the API, and align the Dashboard season picker if you change it. |
 | UI ↔ API | Open **http://localhost:8000/docs**; match port in **Settings** or `VITE_API_BASE_URL` / `CORS_ORIGINS`. |
 
 ## License

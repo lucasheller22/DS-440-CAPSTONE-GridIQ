@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
+
 import numpy as np
 import pandas as pd
 
 from app.nflverse_parquet import read_parquet_from_url_fill_columns
+from app.nflverse_schedules import allowed_nflverse_seasons
 
 _PBP_PARQUET_URL = (
     "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_{season}.parquet"
@@ -41,22 +44,33 @@ PBP_COLS = [
     "total_away_score",
 ]
 
-_season_frames: dict[int, pd.DataFrame] = {}
+_season_frames: OrderedDict[int, pd.DataFrame] = OrderedDict()
 
 
 def load_season_frame(season: int) -> pd.DataFrame:
-    """Load and cache one season of nflverse PBP (narrow columns)."""
-    if season not in _season_frames:
-        url = _PBP_PARQUET_URL.format(season=season)
-        df = read_parquet_from_url_fill_columns(url, columns=PBP_COLS, timeout_sec=300)
-        if df.empty:
-            _season_frames[season] = df
-        else:
-            f64 = df.select_dtypes(include=[np.float64]).columns
-            if len(f64) > 0:
-                df = df.copy()
-                df[f64] = df[f64].astype(np.float32)
-            _season_frames[season] = df
+    """Load and cache PBP for one season (only if that year is in ``NFLVERSE_SEASONS``)."""
+    if season not in allowed_nflverse_seasons():
+        return pd.DataFrame()
+
+    if season in _season_frames:
+        _season_frames.move_to_end(season)
+        return _season_frames[season]
+
+    url = _PBP_PARQUET_URL.format(season=season)
+    df = read_parquet_from_url_fill_columns(url, columns=PBP_COLS, timeout_sec=300)
+    if df.empty:
+        _season_frames[season] = df
+    else:
+        f64 = df.select_dtypes(include=[np.float64]).columns
+        if len(f64) > 0:
+            df = df.copy()
+            df[f64] = df[f64].astype(np.float32)
+        _season_frames[season] = df
+
+    cap = max(1, len(allowed_nflverse_seasons()))
+    while len(_season_frames) > cap:
+        _season_frames.popitem(last=False)
+
     return _season_frames[season]
 
 

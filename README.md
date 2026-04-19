@@ -1,5 +1,13 @@
 # GridIQ (DS 440 Capstone)
 
+<h2 align="center"><a href="https://ds-440-capstone-gridiq-1.onrender.com">Open the live app (Render) — no setup</a></h2>
+
+<p align="center"><strong><a href="https://ds-440-capstone-gridiq-1.onrender.com">https://ds-440-capstone-gridiq-1.onrender.com</a></strong></p>
+
+<p align="center">Use this <strong>deployed</strong> site first — it skips clone, installs, env files, and every local startup step below.</p>
+
+<hr />
+
 AI football coach: chat, NFL dashboards, and a **Playbook** (routes, coverages, line of scrimmage). **Stack:** React (Vite) + FastAPI, SQLite by default, Gemini for chat.
 
 **Install:** [Git for Windows](https://git-scm.com/downloads) (includes **Git Bash** — required for the front-end terminal **(Windows only)**; macOS/Linux: any terminal) · [Node.js 18+](https://nodejs.org/) (20+ recommended) · [Python 3.10+](https://www.python.org/downloads/) · optional [Docker](https://www.docker.com/products/docker-desktop/) for Postgres  

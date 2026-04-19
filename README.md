@@ -45,7 +45,23 @@ Edit `.env`: set **`JWT_SECRET`** (long random string). Optional: **`GEMINI_API_
 
 ```bash
 python -m alembic upgrade head
+<<<<<<< HEAD
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+=======
+```
+
+> The dashboard needs a parquet engine to load nflverse data. If you prefer, you can also install `fastparquet`:
+>
+> ```bash
+> py -m pip install -r requirements.txt pyarrow fastparquet
+> ```
+
+**Start the API** (run this **every time** you work on the backend):
+
+```powershell
+cd gridiq-backend
+py -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+>>>>>>> 9411a904d4cf1d8ccb6c946902cec9f4ce51fba0
 ```
 
 → API **http://localhost:8000** · docs **http://localhost:8000/docs**

@@ -2,7 +2,7 @@
 
 AI football coach: chat, NFL dashboards, and a **Playbook** (routes, coverages, line of scrimmage). **Stack:** React (Vite) + FastAPI, SQLite by default, Gemini for chat.
 
-**Install:** [Git](https://git-scm.com/downloads) · [Node.js 18+](https://nodejs.org/) (20+ recommended) · [Python 3.10+](https://www.python.org/downloads/) · optional [Docker](https://www.docker.com/products/docker-desktop/) for Postgres  
+**Install:** [Git for Windows](https://git-scm.com/downloads) (includes **Git Bash** — required on Windows for the front end) · [Node.js 18+](https://nodejs.org/) (20+ recommended) · [Python 3.10+](https://www.python.org/downloads/) · optional [Docker](https://www.docker.com/products/docker-desktop/) for Postgres  
 
 Windows: if `python` fails, use `py -3`. macOS/Linux: use `python3` if needed.
 
@@ -11,16 +11,14 @@ git clone https://github.com/lucasheller22/DS-440-CAPSTONE-GridIQ.git
 cd DS-440-CAPSTONE-GridIQ
 ```
 
----
+### Git Bash (Windows — front end)
 
-## Front-end only
+Use **Git Bash** for the UI terminal so `npm` / Vite paths and shell scripts behave consistently.
 
-```bash
-cd gridiq-frontend
-npm install && npm run dev
-```
-
-→ **http://localhost:5173** (sidebar: **Playbook**). No API: use **Settings → Use local mocks** or add `gridiq-frontend/.env` with `VITE_USE_MOCKS=true`. Point at a real API with `VITE_API_BASE_URL=http://localhost:8000`.
+1. Download **Git for Windows** from [https://git-scm.com/downloads](https://git-scm.com/downloads) (choose *64-bit Git for Windows Setup* unless you need 32-bit).
+2. Run the installer. Recommended: keep **Git Bash Here** / **Git GUI Here** context menus enabled; use the default **Git from Git Bash only** or **Git from the command line and also from 3rd-party software** depending on your preference.
+3. Finish the wizard, then open **Git Bash** (Start menu → *Git* → *Git Bash*).
+4. Go to the repo and run the front-end commands from **Full stack** below (`cd gridiq-frontend`, `npm install`, `npm run dev`).
 
 ---
 
@@ -52,7 +50,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 → API **http://localhost:8000** · docs **http://localhost:8000/docs**
 
-**Terminal 2 — UI** (from repo root):
+**Terminal 2 — UI** (Git Bash on Windows; macOS/Linux: any terminal):
 
 ```bash
 cd gridiq-frontend
@@ -60,6 +58,8 @@ npm install && npm run dev
 ```
 
 → **http://localhost:5173** — register, log in, then Dashboard / Chat / Playbook.
+
+For local UI without the API: **Settings → Use local mocks** or add `gridiq-frontend/.env` with `VITE_USE_MOCKS=true`. With the API running, use `VITE_API_BASE_URL=http://localhost:8000` if needed.
 
 ---
 

@@ -2,7 +2,7 @@
 
 AI football coach: chat, NFL dashboards, and a **Playbook** (routes, coverages, line of scrimmage). **Stack:** React (Vite) + FastAPI, SQLite by default, Gemini for chat.
 
-**Install:** [Git for Windows](https://git-scm.com/downloads) (includes **Git Bash** — required on Windows for the front end) · [Node.js 18+](https://nodejs.org/) (20+ recommended) · [Python 3.10+](https://www.python.org/downloads/) · optional [Docker](https://www.docker.com/products/docker-desktop/) for Postgres  
+**Install:** [Git for Windows](https://git-scm.com/downloads) (includes **Git Bash** — required for the front-end terminal **(Windows only)**; macOS/Linux: any terminal) · [Node.js 18+](https://nodejs.org/) (20+ recommended) · [Python 3.10+](https://www.python.org/downloads/) · optional [Docker](https://www.docker.com/products/docker-desktop/) for Postgres  
 
 Windows: if `python` fails, use `py -3`. macOS/Linux: use `python3` if needed.
 
@@ -45,24 +45,12 @@ Edit `.env`: set **`JWT_SECRET`** (long random string). Optional: **`GEMINI_API_
 
 ```bash
 python -m alembic upgrade head
-<<<<<<< HEAD
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-=======
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-> The dashboard needs a parquet engine to load nflverse data. If you prefer, you can also install `fastparquet`:
->
-> ```bash
-> py -m pip install -r requirements.txt pyarrow fastparquet
-> ```
+Windows: if `python -m uvicorn` fails, from `gridiq-backend` run `py -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000` instead.
 
-**Start the API** (run this **every time** you work on the backend):
-
-```powershell
-cd gridiq-backend
-py -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
->>>>>>> 9411a904d4cf1d8ccb6c946902cec9f4ce51fba0
-```
+The dashboard needs a Parquet engine (`pyarrow` from the install step above). If reads still fail, try also installing `fastparquet`: `python -m pip install fastparquet` (or `py -m pip install fastparquet` on Windows).
 
 → API **http://localhost:8000** · docs **http://localhost:8000/docs**
 

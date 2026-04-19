@@ -74,7 +74,7 @@ python -m alembic upgrade head
 
 ```powershell
 cd gridiq-backend
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+py -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 | If you see… | Fix |
